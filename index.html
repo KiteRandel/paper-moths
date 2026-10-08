@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="author" content="KiteRandel" />
+  <meta name="description" content="Amara & the Paper Moths — an endless rooftop run at dusk. A game by KiteRandel." />
+  <title>Amara &amp; the Paper Moths · by KiteRandel</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🦋</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { --ink: #3a2a26; --umber: #533d37; --mauve: #715b51; --rose: #a28b7f; --cream: #dfd5ca; --paper: #efe6da; --glow: #f6dcc0; --ember: #e8b48c; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #c9b3a4; color: var(--ink); font-family: 'Zen Maru Gothic', system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+    #stage canvas { display: block; }
+    .hidden { display: none !important; }
+    /* paper card with a slightly uneven ink border, like a sketchbook page */
+    .paper { background: var(--paper); border: 2.5px solid var(--ink); border-radius: 18px 22px 16px 24px / 22px 16px 24px 18px; box-shadow: 4px 5px 0 rgba(58,42,38,.35);
+      background-image: radial-gradient(rgba(113,91,81,.08) 1px, transparent 1px); background-size: 6px 6px; }
+    button { font: 700 18px 'Zen Maru Gothic', sans-serif; color: var(--paper); background: var(--umber); border: 2.5px solid var(--ink); border-radius: 14px 18px 12px 16px; padding: 10px 22px; cursor: pointer; box-shadow: 3px 4px 0 rgba(58,42,38,.4); transition: transform .08s; }
+    button:hover { background: var(--mauve); }
+    button:active { transform: translate(2px, 3px); box-shadow: 1px 1px 0 rgba(58,42,38,.4); }
+    button:disabled { opacity: .6; cursor: default; }
+
+    #hud { position: fixed; inset: 14px 14px auto 14px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; }
+    #hud .paper { padding: 8px 14px; pointer-events: auto; }
+    .score { font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: 34px; line-height: 1; }
+    .sub { font-size: 14px; opacity: .8; display: flex; gap: 12px; margin-top: 4px; }
+    #combo { position: fixed; top: 92px; left: 18px; font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: 22px; color: var(--paper); text-shadow: 0 0 2px var(--ink), 2px 2px 0 var(--ink); opacity: 0; transform: scale(.8); transition: .15s; }
+    #combo.on { opacity: 1; transform: scale(1); }
+    .powers { display: flex; gap: 8px; margin-top: 6px; justify-content: flex-end; }
+    .pw { font-size: 13px; padding: 3px 9px; }
+    #muteBtn { font-size: 16px; padding: 4px 12px; margin-left: 8px; }
+
+    .modal { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; pointer-events: none; }
+    .modal > .paper { pointer-events: auto; text-align: center; padding: 22px 26px; width: min(460px, 100%); }
+    #title { place-items: end start; padding: 5vh 5vw; }
+    #title > .paper { text-align: left; width: min(430px, 100%); }
+    h1 { font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: clamp(30px, 6vw, 46px); line-height: 1.05; margin: 0; letter-spacing: .01em; }
+    h1 small { display: block; font-size: .5em; font-weight: 600; color: var(--mauve); margin-bottom: 4px; }
+    .by { margin: 6px 0 14px; font-size: 15px; color: var(--mauve); }
+    .keys { font-size: 14px; line-height: 1.75; margin: 0 0 16px; }
+    kbd { font-family: inherit; font-size: 12px; border: 1.5px solid var(--ink); border-radius: 5px; padding: 0 5px; background: var(--cream); }
+    .stats { display: grid; grid-template-columns: 1fr auto; gap: 4px 18px; text-align: left; margin: 12px auto 16px; max-width: 260px; font-size: 16px; }
+    .stats b { font-family: 'Shippori Mincho B1', serif; font-size: 20px; }
+    #oTitle { font-size: 34px; }
+    .hint { font-size: 13px; opacity: .7; margin-top: 10px; }
+    .credit { position: fixed; right: 12px; bottom: 8px; font-size: 12px; color: var(--paper); text-shadow: 0 1px 2px var(--ink); opacity: .85; }
+    .credit a { color: inherit; }
+    @media (max-width: 600px) { .score { font-size: 26px; } #title { place-items: end center; } .keys .desk { display: none; } }
+    @media (min-width: 601px) { .keys .touch { display: none; } }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div id="hud" class="hidden">
+    <div class="paper">
+      <div class="score" id="score">0</div>
+      <div class="sub"><span id="dist">0 m</span><span>🦋 <b id="moths">0</b></span></div>
+    </div>
+    <div>
+      <div class="paper sub">best <b id="best">0</b><button id="muteBtn" title="Music">♪</button></div>
+      <div class="powers"><span id="pShield" class="paper pw hidden">🩹 bandage shield</span><span id="pMagnet" class="paper pw hidden">🎀 ribbon magnet</span></div>
+    </div>
+  </div>
+  <div id="combo"></div>
+
+  <div id="title" class="modal">
+    <div class="paper">
+      <h1><small>Amara &amp;</small>the Paper Moths</h1>
+      <div class="by">an evening rooftop run · a game by <b>KiteRandel</b></div>
+      <div class="keys">
+        <span class="desk"><kbd>←</kbd><kbd>→</kbd> change lanes · <kbd>↑</kbd>/<kbd>Space</kbd> leap · <kbd>↓</kbd> slide<br /></span>
+        <span class="touch">swipe ← → to change lanes · swipe ↑ to leap · swipe ↓ to slide<br /></span>
+        Catch the glowing moths in a row for combos. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandages and 🎀 ribbons.
+      </div>
+      <button id="playBtn" disabled>Loading…</button>
+    </div>
+  </div>
+
+  <div id="over" class="modal hidden">
+    <div class="paper">
+      <h1 id="oTitle">Bonk!</h1>
+      <div class="stats">
+        <span>Score</span><b id="oScore">0</b>
+        <span>Distance</span><b id="oDist">0 m</b>
+        <span>Moths caught</span><b id="oMoths">0</b>
+        <span>Best</span><b id="oBest">0</b>
+      </div>
+      <button id="againBtn">Run again</button>
+      <div class="hint">or press <kbd>Space</kbd></div>
+    </div>
+  </div>
+
+  <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
+
+  <script type="importmap">
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    } }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
