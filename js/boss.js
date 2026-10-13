@@ -1,7 +1,7 @@
 // Boss fights: the Twin Lanterns and Crimson Amara. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=5';
+import { PAL, T, toon } from './art.js?v=6';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -264,7 +264,7 @@ export function createBosses(ctx) {
     const p = player, t = ctx.t;
     st.t += dt;
     for (const tm of [...timers]) if (st.t >= tm.at) { timers.splice(timers.indexOf(tm), 1); tm.fn(); }
-    if (st.mode === 'none' && p.alive && ctx.dist > st.nextAt - 150) { st.mode = 'pending'; st.kind = st.order[st.beaten % 2]; st.startZ = null; }
+    if (st.mode === 'none' && p.alive && ctx.dist > st.nextAt - 150) { st.mode = 'pending'; st.kind = st.order[st.beaten % st.order.length]; st.startZ = null; }
     if (st.mode === 'pending' && st.startZ !== null && p.z <= st.startZ) begin();
 
     const b = st.boss;
@@ -515,5 +515,7 @@ export function createBosses(ctx) {
     noteAction() { lastAct = st.t; },
     get state() { return { mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { lane: st.slam.lane, phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
+    // test hook: pretend some bosses were already beaten and the next one is due now
+    skipTo(beaten) { st.beaten = beaten; st.nextAt = ctx.dist + 150; },
   };
 }
