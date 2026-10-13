@@ -55,6 +55,23 @@ export const sfx = {
   slam: () => { noise(0.6, 120, 0.9, 0, 0.5); noise(0.4, 2000, 0.25, 0.02, 0.8); },
   stuck: () => { pluck(mtof(55), 0, 0.3, 0.1, master, 'triangle'); pluck(mtof(54), 0.15, 0.3, 0.1, master, 'triangle'); pluck(mtof(53), 0.3, 0.5, 0.1, master, 'triangle'); },
   escape: () => noise(0.25, 700, 0.3),
+  // Lilac & Glitch
+  sing: (m, dur = 0.5, bright = false) => {   // a soft sung vowel: two sines with vibrato through a vowel-ish filter
+    if (!ctx || snd.muted) return; const t = ctx.currentTime, f = mtof(m);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(bright ? 0.1 : 0.13, t + 0.06); g.gain.setValueAtTime(bright ? 0.1 : 0.13, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.25);
+    const fl = ctx.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = bright ? 1400 : 900; fl.Q.value = 1.2;
+    const vib = ctx.createOscillator(); vib.frequency.value = 5.5; const vg = ctx.createGain(); vg.gain.value = f * 0.012; vib.connect(vg);
+    for (const [mul, type] of [[1, 'sine'], [2, 'triangle']]) { const o = ctx.createOscillator(); o.type = type; o.frequency.value = f * mul; vg.connect(o.frequency); const og = ctx.createGain(); og.gain.value = mul === 1 ? 1 : 0.35; o.connect(og).connect(fl); o.start(t); o.stop(t + dur + 0.3); }
+    fl.connect(g).connect(master); vib.start(t); vib.stop(t + dur + 0.3);
+    if (bright) pluck(f * 2, 0, 0.6, 0.05);
+  },
+  glitchGo: () => { for (let i = 0; i < 6; i++) pluck(200 + Math.random() * 1600, i * 0.04, 0.06, 0.06, master, 'square'); },
+  glitch: () => { for (let i = 0; i < 4; i++) pluck(300 + Math.random() * 2000, i * 0.03, 0.05, 0.05, master, 'square'); noise(0.12, 3000, 0.2); },
+  strike: () => { noise(0.3, 2400, 0.4, 0, 0.6); pluck(90, 0, 0.25, 0.15, master, 'square'); },
+  echoStart: () => [72, 76, 79].forEach((m, i) => pluck(mtof(m), i * 0.07, 0.5, 0.06)),
+  chord: (ms) => { [...new Set(ms)].concat([84]).forEach((m, i) => pluck(mtof(m), i * 0.03, 1.8, 0.09)); },
+  offKey: () => { pluck(mtof(61), 0, 0.5, 0.1, master, 'sawtooth'); pluck(mtof(62), 0, 0.5, 0.08, master, 'sawtooth'); },
+  snap: () => { noise(0.2, 1800, 0.6, 0, 2); pluck(mtof(88), 0, 0.4, 0.1, master, 'triangle'); pluck(mtof(64), 0.05, 0.9, 0.12, master, 'triangle'); },
 };
 // a gentle, slightly melancholic music-box waltz in A minor
 const SONG = [

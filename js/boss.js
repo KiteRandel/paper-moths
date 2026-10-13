@@ -5,7 +5,8 @@ import { PAL, T, toon } from './art.js';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const BLUE = '#5d8fe8', ORANGE = '#f0913a', RED = '#d8343c';
+const BLUE = '#5d8fe8', ORANGE = '#f0913a', RED = '#d8343c', LILAC = '#9a5fe0', GREEN = '#3fd45a';
+const NOTE_MIDI = [72, 76, 79];   // lane 0 = low, 1 = middle, 2 = high
 
 export function createBosses(ctx) {
   // ctx: { scene, world, player, LANES, bgOnly, sfx, sparkle, addMoth, hurt, addPoints, fx(flash, shake), get speed(), get dist(), get t() }
@@ -44,6 +45,22 @@ export function createBosses(ctx) {
     for (const [b, x, ry] of [[blue, -0.36, 1.05], [orange, 0.36, -1.05]]) { scene.remove(b.g); pair.add(b.g); b.g.position.x = x; b.g.rotation.y = ry; b.g.visible = true; }
     pair.scale.setScalar(1.6); B.twins = { g: pair, blue, orange };
     B.crimson = tinted(gltf, '#ff9a92', RED); B.crimson.g.scale.setScalar(1.7);
+    // Lilac (composed, singing) and Glitch (green, twitchy, on a leash)
+    const lilac = tinted(gltf, '#d9c2ff', LILAC), glitch = tinted(gltf, '#c4ffbd', GREEN);
+    const bone = (root, ...names) => { for (const n of names) { const o = root.getObjectByName(n); if (o) return o; } return null; };
+    lilac.hand = bone(lilac.root, 'HandL', 'Hand.L', 'Hand_L');
+    glitch.neck = bone(glitch.root, 'Neck');
+    // a collar on Glitch's neck, placed in the bind pose then parented to the bone
+    glitch.root.updateMatrixWorld(true);
+    if (glitch.neck) {
+      const collar = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.018, 8, 20), toon({ color: '#2a1f2e', emissive: new THREE.Color(LILAC), emissiveIntensity: 0.6 }));
+      collar.rotation.x = Math.PI / 2; collar.position.copy(glitch.neck.getWorldPosition(new THREE.Vector3())).add(new THREE.Vector3(0, 0.03, 0));
+      scene.add(collar); collar.updateMatrixWorld(true); glitch.neck.attach(collar);
+    }
+    lilac.g.scale.setScalar(1.6); glitch.g.scale.setScalar(1.45);
+    const leash = new THREE.Mesh(new THREE.BufferGeometry(), toon({ color: '#3a2440', emissive: new THREE.Color(LILAC), emissiveIntensity: 0.8 }));
+    leash.frustumCulled = false; leash.visible = false; scene.add(leash);
+    B.duet = { g: lilac.g, lilac, glitch, leash, crack: 0 };
   }
 
   // ---------------------------------------------------------------- shared bits
@@ -70,7 +87,7 @@ export function createBosses(ctx) {
   const pitMat = new THREE.MeshBasicMaterial({ color: '#1e1412' });
   const debrisMat = toon({ color: PAL.dusk });
 
-  const st = { mode: 'none', kind: null, hp: 0, maxHp: 3, t: 0, nextAt: 520, order: ['twins', 'crimson'], beaten: 0, startZ: 0, boss: null, z: 0, y: 0, x: 0 };
+  const st = { mode: 'none', kind: null, hp: 0, maxHp: 3, t: 0, nextAt: 520, order: ['twins', 'crimson', 'duet'], beaten: 0, startZ: 0, boss: null, z: 0, y: 0, x: 0 };
   const waves = [], holes = [], cracks = [], shots = [];
   let lantern = null, timers = [], lastAct = -9;
   const after = (secs, fn) => timers.push({ at: st.t + secs, fn });
@@ -93,6 +110,8 @@ export function createBosses(ctx) {
     for (const s of shots) scene.remove(s.mesh); shots.length = 0;
     if (lantern) world.remove(lantern.mesh); lantern = null; timers = [];
     if (B.twins) B.twins.g.visible = false; if (B.crimson) B.crimson.g.visible = false;
+    if (B.duet) { B.duet.lilac.g.visible = B.duet.glitch.g.visible = B.duet.leash.visible = false; B.duet.crack = 0; }
+    clearDuet();
     Object.assign(st, { mode: 'none', kind: null, hp: 0, t: 0, nextAt: 520, beaten: 0, boss: null, slam: null }); lastAct = -99;
     ui.legend.classList.add('hidden'); setBar();
   }
@@ -106,6 +125,12 @@ export function createBosses(ctx) {
       for (const b of [B.twins.blue, B.twins.orange]) anim(b, 'Hug');
       banner('The Twin Lanterns', 'blue wave: keep running · orange wave: slide!', 3.2);
       ui.name.textContent = 'The Twin Lanterns';
+    } else if (st.kind === 'duet') {
+      const d = B.duet; st.boss = d.lilac; d.lilac.g.visible = d.glitch.g.visible = d.leash.visible = true; d.crack = 0;
+      st.z = p.z - 60; st.y = 2.4; st.x = 0; anim(d.lilac, 'Sing'); anim(d.glitch, 'Thrash');
+      d.glitch.g.position.set(1.6, 2, st.z + 1);
+      banner('Lilac & Glitch', 'remember her song · dodge Glitch · sing it back!', 3.4);
+      ui.name.textContent = 'Lilac & Glitch';
     } else {
       st.boss = B.crimson; B.crimson.g.visible = true; st.z = p.z - 60; st.y = 3.2; st.x = 0; anim(B.crimson, 'Fly');
       banner('Crimson Amara', 'dodge the cracks · hit her when she gets stuck!', 3.2);
@@ -113,13 +138,18 @@ export function createBosses(ctx) {
     }
     ctx.giveShield();   // a bandage to start every fight
     sfx.bossIntro(); setBar();
-    after(2.6, () => { st.mode = 'fight'; st.t0 = st.t; st.round = 0; st.slamsSinceHit = 0; if (st.kind === 'twins') { ui.legend.classList.remove('hidden'); volley(); } else crimsonNext(1.0); });
+    after(2.6, () => { st.mode = 'fight'; st.t0 = st.t; st.round = 0; st.slamsSinceHit = 0; if (st.kind === 'twins') { ui.legend.innerHTML = LEGEND.twins; ui.legend.classList.remove('hidden'); volley(); } else if (st.kind === 'duet') { ui.legend.innerHTML = LEGEND.duet; ui.legend.classList.remove('hidden'); duetCycle(); } else crimsonNext(1.0); });
   }
+  const LEGEND = {
+    twins: '<span><b class="b">● blue wave</b> keep running, don\u2019t move</span><span><b class="o">● orange wave</b> slide!</span>',
+    duet: '<span><b class="p">♪ low</b> left · <b class="p">♪ mid</b> centre · <b class="p">♪ high</b> right</span><span>then <b class="p">sing it back</b>!</span>',
+  };
   function defeated() {
     st.mode = 'outro'; st.beaten++;
     ui.legend.classList.add('hidden'); setBar();
     const bonus = 400 + 200 * st.beaten; ctx.addPoints(bonus);
-    banner(st.kind === 'twins' ? 'The twins drift apart!' : 'Crimson Amara crashes out!', `+${bonus} points`, 2.8);
+    banner(st.kind === 'twins' ? 'The twins drift apart!' : st.kind === 'duet' ? 'The leash snaps!' : 'Crimson Amara crashes out!', `+${bonus} points`, 2.8);
+    if (st.kind === 'duet') { B.duet.leash.visible = false; clearDuet(); sfx.snap(); }
     sfx.bossDown(); ctx.fx(0.5, 0.6);
     // shower of moths down the road
     const p = player;
@@ -135,6 +165,7 @@ export function createBosses(ctx) {
     const pos = st.boss.g.position.clone().add(new THREE.Vector3(0, 1, 0));
     ctx.sparkle(pos, st.kind === 'twins' ? PAL.glow : RED, 22);
     if (st.kind === 'twins') { for (const b of [B.twins.blue, B.twins.orange]) anim(b, 'Hit', { once: true, after: 'Hug', fade: 0.1 }); }
+    else if (st.kind === 'duet') { anim(B.duet.lilac, 'Hit', { once: true, after: 'Sing', fade: 0.1 }); B.duet.crack++; }
     else anim(B.crimson, 'Hit', { once: true, after: 'Fly', fade: 0.1 });
     if (st.hp <= 0) after(0.5, defeated);
   }
@@ -238,7 +269,7 @@ export function createBosses(ctx) {
     const b = st.boss;
     if (b && (st.mode === 'intro' || st.mode === 'fight' || st.mode === 'outro')) {
       // fly in, hover ahead of Amara
-      let wantZ = p.z - (st.kind === 'twins' ? 15 : 12), wantY = st.kind === 'twins' ? 2.2 : 2.6, wantX = Math.sin(t * 0.7) * 0.9;
+      let wantZ = p.z - (st.kind === 'twins' ? 15 : st.kind === 'duet' ? 14 : 12), wantY = st.kind === 'twins' ? 2.2 : st.kind === 'duet' ? 2.3 : 2.6, wantX = st.kind === 'duet' ? -0.9 + Math.sin(t * 0.35) * 0.5 : Math.sin(t * 0.7) * 0.9;
       let k = 3;
       if (st.kind === 'crimson' && st.slam) {
         const s = st.slam; wantX = LANES[s.lane];
@@ -250,9 +281,10 @@ export function createBosses(ctx) {
       st.z += (wantZ - st.z) * Math.min(1, dt * k); st.y += (wantY - st.y) * Math.min(1, dt * k); st.x += (wantX - st.x) * Math.min(1, dt * (k * 0.8));
       if (st.kind === 'crimson' && st.slam && (st.slam.phase === 'impact' || st.slam.phase === 'stuck')) { st.z = st.slam.z; st.y = 0; st.x = LANES[st.slam.lane]; }
       b.g.position.set(st.x, st.y + (st.mode === 'fight' && !(st.slam && st.slam.phase === 'stuck') ? Math.sin(t * 2) * 0.15 : 0), st.z);
-      if (st.mode === 'outro') { b.g.rotation.z += dt * 3; b.g.scale.multiplyScalar(1 - dt * 0.35); if (st.outroT > 2.2) { b.g.visible = false; b.g.rotation.z = 0; b.g.scale.setScalar(st.kind === 'twins' ? 1.6 : 1.7); st.mode = 'none'; st.boss = null; st.nextAt = ctx.dist + 650; } }
+      if (st.mode === 'outro') { b.g.rotation.z += dt * 3; b.g.scale.multiplyScalar(1 - dt * 0.35); if (st.outroT > 2.2) { b.g.visible = false; b.g.rotation.z = 0; b.g.scale.setScalar(st.kind === 'crimson' ? 1.7 : 1.6); if (st.kind === 'duet') { B.duet.glitch.g.visible = false; B.duet.glitch.g.scale.setScalar(1.45); B.duet.glitch.g.rotation.z = 0; } st.mode = 'none'; st.boss = null; st.nextAt = ctx.dist + 650; } }
       // mixers + auras
-      const list = st.kind === 'twins' ? [B.twins.blue, B.twins.orange] : [B.crimson];
+      const list = st.kind === 'twins' ? [B.twins.blue, B.twins.orange] : st.kind === 'duet' ? [B.duet.lilac, B.duet.glitch] : [B.crimson];
+      if (st.kind === 'duet') updateDuetBodies(dt, t);
       for (const m of list) {
         m.mixer.update(dt);
         m.charge = Math.max(0, (m.charge || 0) - dt);
@@ -308,15 +340,179 @@ export function createBosses(ctx) {
         }
       }
     }
+    if (st.mode === 'fight' && st.kind === 'duet') updateDuetFight(dt, t);
     // tidy holes and cracks left behind
     for (const h of [...holes]) if (h.z1 > p.z + 30) { world.remove(h.mesh); holes.splice(holes.indexOf(h), 1); }
   }
   const lerpZ = (a, b, k) => a + (b - a) * k;
 
+  // ================================================================ Lilac & Glitch
+  const noteTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(210,170,255,.9)'); gr.addColorStop(1, 'rgba(154,95,224,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    g.font = 'bold 84px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 6; g.strokeStyle = '#3a2440'; g.fillStyle = '#fbf3ff';
+    g.strokeText('\u266A', 62, 66); g.fillText('\u266A', 62, 66);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const beamTex = (() => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d');
+    for (let y = 0; y < 256; y += 4) { g.fillStyle = `rgba(${80 + Math.random() * 120 | 0},255,${120 + Math.random() * 100 | 0},${0.35 + Math.random() * 0.6})`; g.fillRect(Math.random() * 10, y, 64 - Math.random() * 20, 2 + Math.random() * 3); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapT = THREE.RepeatWrapping; return t;
+  })();
+  function noteSprite(size) {
+    const g = new THREE.Group();
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#c58cff', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.setScalar(size * 1.9);
+    const n = new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex, transparent: true, depthWrite: false })); n.scale.setScalar(size);
+    g.add(glow, n); g.material = n.material; return bgOnly(g);
+  }
+  const duet = { phase: null, melody: [], beat: 0.6, glyphs: [], rows: [], beams: [], nextStrike: null, jitT: 0, off: new THREE.Vector3(1.6, -0.5, 0.8) };
+  function clearDuet() {
+    for (const gl of duet.glyphs) scene.remove(gl.s); duet.glyphs = [];
+    for (const r of duet.rows) for (const o of r.orbs) world.remove(o); duet.rows = [];
+    for (const b of duet.beams) world.remove(b.m); duet.beams = [];
+    duet.phase = null; duet.nextStrike = null;
+  }
+  function makeMelody(n) {
+    const m = [];
+    for (let i = 0; i < n; i++) {
+      let l = Math.floor(Math.random() * 3);
+      if (i >= 2 && m[i - 1] === l && m[i - 2] === l) l = (l + 1 + Math.floor(Math.random() * 2)) % 3;
+      m.push(l);
+    }
+    if (new Set(m).size === 1) m[n - 1] = (m[0] + 1) % 3;
+    return m;
+  }
+  function duetCycle() {
+    if (st.mode !== 'fight') return;
+    clearDuet();
+    const lvl = Math.min(Math.floor(st.round), 2);
+    const n = 3 + lvl; duet.beat = [0.62, 0.54, 0.47][lvl];
+    duet.melody = makeMelody(n); duet.phase = 'sing';
+    // 1) Lilac sings: each note sends a glowing note to hover over its lane
+    duet.melody.forEach((lane, i) => after(0.4 + i * duet.beat, () => {
+      if (st.mode !== 'fight') return;
+      sfx.sing(NOTE_MIDI[lane], duet.beat * 0.95);
+      const s = noteSprite(1.7); s.position.copy(B.duet.lilac.g.position).add(new THREE.Vector3(0, 2.6, 0)); scene.add(s);
+      duet.glyphs.push({ s, lane, i, t: 0 });
+      B.duet.lilac.charge = 0.4;
+    }));
+    const singEnd = 0.4 + n * duet.beat;
+    // 2) Glitch replays the song as strikes down each lane, same rhythm
+    after(singEnd + 0.9, () => { if (st.mode === 'fight') { duet.phase = 'strike'; sfx.glitchGo(); banner('Dodge!', '', 0.8); } });
+    duet.melody.forEach((lane, i) => {
+      const at = singEnd + 1.3 + i * duet.beat * 1.1;
+      after(at - 0.32, () => { if (st.mode === 'fight') { duet.nextStrike = { lane, i }; glitchTo(lane); } });
+      after(at, () => { if (st.mode === 'fight') strike(lane, i); });
+    });
+    const strikeEnd = singEnd + 1.3 + n * duet.beat * 1.1;
+    // 3) the echo: rows of notes to sing back
+    after(strikeEnd + 0.5, () => { if (st.mode === 'fight') echoRows(); });
+  }
+  function glitchTo(lane) {
+    const g = B.duet.glitch; g.lunge = { lane, t: 0 };
+    g.g.position.set(LANES[lane], 0.9, player.z - 7); sfx.glitch();
+  }
+  function strike(lane, i) {
+    duet.nextStrike = null;
+    const gl = duet.glyphs.find((x) => x.i === i); if (gl) { ctx.sparkle(gl.s.position.clone(), LILAC, 8); scene.remove(gl.s); duet.glyphs.splice(duet.glyphs.indexOf(gl), 1); }
+    const mat = new THREE.MeshBasicMaterial({ map: beamTex, color: '#7dff8a', transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    const m = new THREE.Group(); m.position.set(LANES[lane], 0, player.z - 4.5); m.material = mat;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 13), mat); floor.rotation.x = -Math.PI / 2; floor.position.y = 0.06;
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(13, 3.0), mat); wall.rotation.y = Math.PI / 2; wall.position.y = 1.5;
+    m.add(floor, wall); bgOnly(m); world.add(m);
+    duet.beams.push({ m, t: 0 });
+    sfx.strike(); ctx.fx(0.08, 0.25);
+    const p = player;
+    if (Math.abs(p.x - LANES[lane]) < 0.85) ctx.hurt('Glitch caught you in her lane!');
+    else ctx.addPoints(20);
+  }
+  function echoRows() {
+    duet.phase = 'echo'; banner('Sing it back!', 'run through her notes in order', 1.8); sfx.echoStart();
+    const p = player, gap = Math.max(7, ctx.speed * 0.62), z0 = p.z - (ctx.speed * 1.3 + 10);
+    duet.melody.forEach((lane, i) => {
+      const z = z0 - i * gap, orbs = [];
+      for (let l = 0; l < 3; l++) {
+        const s = noteSprite(1.35); s.position.set(LANES[l], 1.15, z); world.add(s); orbs.push(s);
+      }
+      duet.rows.push({ i, z, lane, orbs, done: false });
+    });
+    duet.echoOk = 0;
+  }
+  function updateDuetBodies(dt, t) {
+    const d = B.duet, p = player, g = d.glitch;
+    // Glitch: twitchy hover beside Lilac, snapping to new spots, unless she's mid-lunge
+    if (st.mode === 'outro') {
+      g.g.position.lerp(d.lilac.g.position.clone().add(new THREE.Vector3(Math.sin(t * 9) * 1.2, Math.cos(t * 7), 0)), Math.min(1, dt * 6)); g.g.rotation.z += dt * 9;
+    } else if (g.lunge) {
+      g.lunge.t += dt;
+      const k = Math.min(1, g.lunge.t / 0.32);
+      g.g.position.set(LANES[g.lunge.lane] + (Math.random() - 0.5) * 0.15, 0.9 - k * 0.5, lerpZ(p.z - 7, p.z - 1.5, k * k));
+      g.g.rotation.x = -0.6 * k;
+      if (g.lunge.t > 0.55) { g.lunge = null; g.g.rotation.x = 0; }
+    } else {
+      duet.jitT -= dt;
+      if (duet.jitT <= 0) { duet.jitT = 0.12 + Math.random() * 0.35; duet.off.set(1.4 + Math.random() * 0.9, -0.8 + Math.random() * 1.2, 0.4 + Math.random() * 1.2); if (Math.random() < 0.5) duet.off.x *= -1; }
+      const want = d.lilac.g.position.clone().add(duet.off);
+      g.g.position.lerp(want, Math.random() < 0.15 ? 1 : Math.min(1, dt * 10));   // sometimes she just blinks there
+    }
+    g.g.rotation.y = Math.atan2(p.x - g.g.position.x, p.z - g.g.position.z) + (Math.random() - 0.5) * 0.3;
+    const flick = Math.random() < 0.12;
+    g.g.scale.set(1.45 * (flick ? 1.18 : 1), 1.45 * (flick ? 0.86 : 1), 1.45);
+    g.aura.material.color.set(flick ? '#ffffff' : GREEN);
+    // the leash: from Lilac's left hand to Glitch's collar, sagging, rebuilt every frame
+    if (d.leash.visible && d.lilac.hand && g.neck) {
+      const a = d.lilac.hand.getWorldPosition(new THREE.Vector3()), b = g.neck.getWorldPosition(new THREE.Vector3());
+      const len = a.distanceTo(b), mid = a.clone().lerp(b, 0.5); mid.y -= Math.max(0, 1.6 - len * 0.12);
+      const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+      d.leash.geometry.dispose();
+      d.leash.geometry = new THREE.TubeGeometry(curve, 24, 0.028 - Math.min(d.crack, 2) * 0.006, 5, false);
+      d.leash.material.emissiveIntensity = 0.8 + (d.crack ? Math.max(0, Math.sin(t * 20)) * d.crack * 0.6 : 0);
+    }
+  }
+  function updateDuetFight(dt, t) {
+    const p = player;
+    // notes from the song fly out and hover over their lanes, ahead of Amara
+    duet.glyphs.forEach((gl) => {
+      gl.t += dt; const k = Math.min(1, gl.t / 0.5);
+      const want = new THREE.Vector3(LANES[gl.lane], 2.6 + Math.sin(t * 3 + gl.i) * 0.12, p.z - 9 - gl.i * 0.6);
+      gl.s.position.lerp(want, k < 1 ? Math.min(1, dt * 7) : 1);
+      gl.s.material.opacity = 0.85 + Math.sin(t * 6 + gl.i) * 0.15;
+    });
+    for (const b of [...duet.beams]) {
+      b.t += dt; b.m.material.opacity = Math.max(0, 1 - Math.max(0, b.t - 0.15) / 0.35); b.m.material.map.offset.y -= dt * 4;
+      if (b.t > 0.45) { world.remove(b.m); duet.beams.splice(duet.beams.indexOf(b), 1); }
+    }
+    // the echo rows: whichever lane Amara runs through is the note she sings
+    if (duet.phase === 'echo') {
+      for (const r of duet.rows) for (const o of r.orbs) { o.position.y = 1.15 + Math.sin(t * 4 + r.i) * 0.1; }
+      const row = duet.rows.find((r) => !r.done);
+      if (row && p.z <= row.z) {
+        row.done = true;
+        const lane = LANES.reduce((best, x, i) => (Math.abs(p.x - x) < Math.abs(p.x - LANES[best]) ? i : best), 0);
+        const ok = lane === row.lane && p.y < 2.2;
+        for (const o of row.orbs) world.remove(o);
+        if (ok) {
+          duet.echoOk++; sfx.sing(NOTE_MIDI[lane], 0.45, true); ctx.sparkle(new THREE.Vector3(p.x, 1.3, p.z), LILAC, 12); ctx.addPoints(30);
+          if (duet.echoOk === duet.melody.length) {
+            duet.phase = 'resolve'; sfx.chord(duet.melody.map((l) => NOTE_MIDI[l]));
+            banner('Perfect echo!', st.hp > 1 ? 'the leash is cracking…' : '', 1.4);
+            hitBoss();
+            if (st.hp > 0) { st.round++; after(1.8, duetCycle); }
+          }
+        } else {
+          duet.phase = 'resolve'; sfx.offKey(); banner('Off key…', 'listen again', 1.4);
+          for (const r of duet.rows) if (!r.done) { r.done = true; for (const o of r.orbs) world.remove(o); }
+          after(1.6, duetCycle);
+        }
+      }
+    }
+  }
+
   return {
     init, reset, update, quiet, quietStartsAt, holeAt,
     noteAction() { lastAct = st.t; },
-    get state() { return { mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { lane: st.slam.lane, phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length }; },
+    get state() { return { mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { lane: st.slam.lane, phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
   };
 }
