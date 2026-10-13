@@ -1,7 +1,7 @@
-// Peony's shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
+// The shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=18';
+import { PAL, T, toon } from './art.js?v=19';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const PINK = '#ff7fb6', PINK_SOFT = '#ffc2dc', PINK_DEEP = '#c94f86';
@@ -85,9 +85,6 @@ export function createShop(ctx) {
   for (const s of [-1, 1]) { const side = new THREE.Mesh(uvs(new THREE.PlaneGeometry(10, 7), 6, 4.5), mWall); side.position.set(s * 5, 3.5, 1); side.rotation.y = -s * Math.PI / 2; scene.add(side); }
   // pink wainscot along the back wall
   const trim = new THREE.Mesh(new THREE.BoxGeometry(14, 1.1, 0.08), toon({ color: '#e7a9c0' })); trim.position.set(0, 0.55, -2.96); scene.add(trim);
-  // the shop's name over the shelves
-  const nameBoard = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.1), new THREE.MeshBasicMaterial({ map: signTexture('Peony’s', 'bandaids · moth trades', 512, 220), transparent: true }));
-  nameBoard.position.set(0, 3.4, -2.9); scene.add(nameBoard);
   // shelves full of jars, bandage rolls and boxes
   for (const [y, w] of [[1.55, 5.4], [2.35, 5.4]]) {
     const shelf = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, 0.45), mWood); shelf.position.set(0, y, -2.75); scene.add(shelf);
@@ -129,7 +126,7 @@ export function createShop(ctx) {
   const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.2, 10), toon({ color: PAL.rose })); pot.position.set(-1.55, 1.13, -0.05); counter.add(pot);
   for (let i = 0; i < 5; i++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), toon({ color: '#8d9a6e' })); leaf.scale.set(0.6, 1.4, 0.6); leaf.position.set(-1.55 + Math.cos(i * 1.3) * 0.07, 1.33, -0.05 + Math.sin(i * 1.3) * 0.07); leaf.rotation.z = Math.cos(i * 1.3) * 0.5; counter.add(leaf); }
 
-  // ---------------------------------------------------------------- Peony (pink Amara) and Amara as the customer
+  // ---------------------------------------------------------------- the pink Amara shopkeeper and Amara as the customer
   const P = { keeper: null, customer: null, mixers: [] };
   function rig(root, gltf) {
     const mixer = new THREE.AnimationMixer(root); const acts = {};
