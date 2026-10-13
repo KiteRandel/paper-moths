@@ -1,5 +1,6 @@
 // Music box + soft effects, synthesized live. Made by KiteRandel.
 let ctx, master, music, delay, nextT = 0, step = 0, playing = false;
+let bossEl = null, bossGain = null, bossOn = false, bossStopT = null;   // boss theme (a streamed mp3)
 export const snd = { muted: false };
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -9,6 +10,28 @@ export function initAudio() {
   delay = ctx.createDelay(1); delay.delayTime.value = 0.36; const fb = ctx.createGain(); fb.gain.value = 0.32;
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
   music.connect(master); music.connect(delay); delay.connect(lp).connect(fb).connect(delay); lp.connect(master);
+  // the boss theme streams from a file and plays through its own fader
+  bossEl = new Audio('assets/boss-theme.mp3'); bossEl.loop = true; bossEl.preload = 'auto'; bossEl.crossOrigin = 'anonymous';
+  bossGain = ctx.createGain(); bossGain.gain.value = 0; bossGain.connect(master);
+  try { ctx.createMediaElementSource(bossEl).connect(bossGain); } catch (e) { bossGain = null; }
+}
+const BOSS_VOL = 0.75;
+export function bossMusicState() { return { on: bossOn, paused: bossEl ? bossEl.paused : null, gain: bossGain ? +bossGain.gain.value.toFixed(2) : null, waltz: music ? +music.gain.value.toFixed(2) : null, time: bossEl ? +bossEl.currentTime.toFixed(1) : null }; }
+// fade the boss theme in (and the music box out) when a fight starts, and back again when it ends
+export function setBossMusic(on) {
+  if (!ctx || !bossEl || !bossGain || on === bossOn) return;
+  bossOn = on; const t = ctx.currentTime;
+  clearTimeout(bossStopT);
+  bossGain.gain.cancelScheduledValues(t); bossGain.gain.setValueAtTime(bossGain.gain.value, t);
+  if (on) {
+    if (bossEl.paused) { bossEl.currentTime = 0; bossEl.play().catch(() => {}); }
+    bossGain.gain.linearRampToValueAtTime(snd.muted ? 0 : BOSS_VOL, t + 2.5);
+    music.gain.setTargetAtTime(0, t, 0.6);
+  } else {
+    bossGain.gain.linearRampToValueAtTime(0, t + 3);
+    bossStopT = setTimeout(() => { if (!bossOn) bossEl.pause(); }, 3200);
+    music.gain.setTargetAtTime(playing && !snd.muted ? 1 : 0, t + 1.2, 0.8);
+  }
 }
 function pluck(f, when, dur = 0.9, vol = 0.12, dest = master, type = 'sine') {
   if (!ctx || snd.muted) return;
@@ -79,7 +102,7 @@ const SONG = [
   [69, 72, 76], [74, 72, 69], [71, 74, 77], [79, 77, 76], [77, 76, 74], [76, 74, 72], [71, 72, 74], [69, -1, -1],
 ];
 const BASS = [45, 50, 47, 52, 48, 53, 52, 45, 45, 50, 47, 52, 50, 48, 52, 45];
-export function setMusic(on) { playing = on; if (ctx) { music.gain.setTargetAtTime(on && !snd.muted ? 1 : 0, ctx.currentTime, 0.4); if (on && nextT < ctx.currentTime) nextT = ctx.currentTime + 0.1; } }
+export function setMusic(on) { playing = on; if (ctx) { music.gain.setTargetAtTime(on && !snd.muted && !bossOn ? 1 : 0, ctx.currentTime, 0.4); if (on && nextT < ctx.currentTime) nextT = ctx.currentTime + 0.1; } }
 export function tickMusic(tempo = 1) {
   if (!ctx || !playing) return;
   const beat = 0.42 / tempo;
@@ -91,4 +114,8 @@ export function tickMusic(tempo = 1) {
     nextT += beat; step++;
   }
 }
-export function setMuted(m) { snd.muted = m; if (ctx) music.gain.value = m || !playing ? 0 : 1; }
+export function setMuted(m) {
+  snd.muted = m; if (!ctx) return;
+  music.gain.value = m || !playing || bossOn ? 0 : 1;
+  if (bossGain) { bossGain.gain.cancelScheduledValues(ctx.currentTime); bossGain.gain.value = m || !bossOn ? 0 : BOSS_VOL; }
+}

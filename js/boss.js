@@ -113,7 +113,7 @@ export function createBosses(ctx) {
     if (B.duet) { B.duet.lilac.g.visible = B.duet.glitch.g.visible = B.duet.leash.visible = false; B.duet.crack = 0; }
     clearDuet();
     Object.assign(st, { mode: 'none', kind: null, hp: 0, t: 0, nextAt: 520, beaten: 0, boss: null, slam: null }); lastAct = -99;
-    ui.legend.classList.add('hidden'); setBar();
+    ui.legend.classList.add('hidden'); setBar(); ctx.bossMusic(false);
   }
   // called by the track generator the first time it lays a quiet block for a pending boss
   function quietStartsAt(z) { if (st.mode === 'pending' && st.startZ === null) st.startZ = z - 4; }
@@ -137,6 +137,7 @@ export function createBosses(ctx) {
       ui.name.textContent = 'Crimson Amara';
     }
     ctx.giveShield();   // a bandage to start every fight
+    ctx.bossMusic(true);
     sfx.bossIntro(); setBar();
     after(2.6, () => { st.mode = 'fight'; st.t0 = st.t; st.round = 0; st.slamsSinceHit = 0; if (st.kind === 'twins') { ui.legend.innerHTML = LEGEND.twins; ui.legend.classList.remove('hidden'); volley(); } else if (st.kind === 'duet') { ui.legend.innerHTML = LEGEND.duet; ui.legend.classList.remove('hidden'); duetCycle(); } else crimsonNext(1.0); });
   }
@@ -145,7 +146,7 @@ export function createBosses(ctx) {
     duet: '<span><b class="p">♪ low</b> left · <b class="p">♪ mid</b> centre · <b class="p">♪ high</b> right</span><span>then <b class="p">sing it back</b>!</span>',
   };
   function defeated() {
-    st.mode = 'outro'; st.beaten++;
+    st.mode = 'outro'; st.beaten++; ctx.bossMusic(false);
     ui.legend.classList.add('hidden'); setBar();
     const bonus = 400 + 200 * st.beaten; ctx.addPoints(bonus);
     banner(st.kind === 'twins' ? 'The twins drift apart!' : st.kind === 'duet' ? 'The leash snaps!' : 'Crimson Amara crashes out!', `+${bonus} points`, 2.8);

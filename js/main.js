@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { PAL, T, makeTextures, toon, toonify } from './art.js';
 import { InkPass } from './post.js';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd } from './audio.js';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js';
 import { createBosses } from './boss.js';
 
 const $ = (id) => document.getElementById(id);
@@ -320,7 +320,7 @@ function startRun() {
 }
 function die(kind) {
   if (!player.alive) return;
-  player.alive = false; state = 'dead'; deadT = 0;
+  player.alive = false; state = 'dead'; deadT = 0; setBossMusic(false);
   if (kind === 'fall') { sfx.fall(); play('Leap'); } else { sfx.hit(); play('Hit', 0.08); shake = 0.5; flash = 0.45; }
   score = Math.floor(dist) + mothPoints;
   const isBest = score > best;
@@ -334,7 +334,7 @@ function die(kind) {
 }
 let mothPoints = 0;
 const boss = createBosses({
-  scene, world, player, LANES, bgOnly, sfx, sparkle, addMoth,
+  scene, world, player, LANES, bgOnly, sfx, sparkle, addMoth, bossMusic: setBossMusic,
   get speed() { return speed; }, get dist() { return dist; }, get t() { return elapsed; },
   addPoints(n) { mothPoints += n; },
   fx(f, sh) { flash = Math.max(flash, f); shake = Math.max(shake, sh); },
@@ -538,6 +538,7 @@ frame();
 
 window.moths = {
   get boss() { return boss.state; },
+  get music() { return bossMusicState(); },
   set stepHook(fn) { stepHook = fn; },
   // jump straight to a boss: clear what's ahead and lay a fresh runway
   forceBoss(kind) {

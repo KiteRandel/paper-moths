@@ -39,7 +39,7 @@ Beating a boss earns a big score bonus and a shower of moths.
 
 ## Art direction
 
-Everything is drawn to match Amara's illustration. The palette is sampled straight from her texture, objects use soft toon shading, and an ink-outline pass gives every shape the same brown lineart. A paper-grain sepia finish goes over the whole frame. The textures (roof tiles, brick, plaster walls with lit windows, crates, leopard-spot laundry and paper lanterns) are painted in code. The music box waltz and sound effects are synthesized live.
+Everything is drawn to match Amara's illustration. The palette is sampled straight from her texture, objects use soft toon shading, and an ink-outline pass gives every shape the same brown lineart. A paper-grain sepia finish goes over the whole frame. The textures (roof tiles, brick, plaster walls with lit windows, crates, leopard-spot laundry and paper lanterns) are painted in code. The music box waltz and sound effects are synthesized live. Boss fights fade in their own theme, "Dreamtone Bloom".
 
 Amara (`assets/amara.glb`) is KiteRandel's character, modeled, rigged and animated in Blender, with run, leap, slide and stumble animations made for this game, plus flying, embracing, slamming, struggling, singing and glitching animations for the bosses.
 
@@ -49,4 +49,4 @@ It's a static site with no build step: `npx serve .` and open the URL it prints.
 
 ## License
 
-Code: MIT © KiteRandel. The Amara character and model (`assets/amara.glb`) © KiteRandel, all rights reserved.
+Code: MIT © KiteRandel. The Amara character and model (`assets/amara.glb`) © KiteRandel, all rights reserved. The boss theme (`assets/boss-theme.mp3`, "Dreamtone Bloom") is from Magnific, used under KiteRandel's Magnific license. It is not covered by the MIT license and may not be reused or redistributed.
