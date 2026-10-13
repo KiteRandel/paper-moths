@@ -1,11 +1,11 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=20';
-import { InkPass } from './post.js?v=20';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=20';
-import { createBosses } from './boss.js?v=20';
-import { createShop } from './shop.js?v=20';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=21';
+import { InkPass } from './post.js?v=21';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=21';
+import { createBosses } from './boss.js?v=21';
+import { createShop } from './shop.js?v=21';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -186,7 +186,6 @@ function addObstacle(kind, lane, z) {
   let mesh, box;
   const x = LANES[lane];
   if (kind === 'crate') { mesh = crate(); box = { x0: x - 0.58, x1: x + 0.58, y0: 0, y1: 0.95, z0: z - 0.5, z1: z + 0.5 }; }
-  else if (kind === 'spikes') { mesh = shop.makeSpikes(); box = { x0: x - 0.6, x1: x + 0.6, y0: 0, y1: 0.42, z0: z - 0.42, z1: z + 0.42 }; }
   else if (kind === 'chimney') { mesh = chimney(); box = { x0: x - 0.55, x1: x + 0.55, y0: 0, y1: 3, z0: z - 0.5, z1: z + 0.5 }; }
   mesh.position.set(x, 0, z); world.add(mesh);
   obstacles.push({ kind, mesh, box, lane });
@@ -442,13 +441,14 @@ const boss = createBosses({
   addPoints(n) { mothPoints += n; },
   fx(f, sh) { flash = Math.max(flash, f); shake = Math.max(shake, sh); },
   giveShield() { bandaidApi.add(1); },
-  hurt(msg) {
-    if (!player.alive) return;
-    if (player.shield > 0) { setBandaids(player.shield - 1); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
-    else { lastHurt = msg; die('hit'); }
-  },
+  hurt(msg) { hurtPlayer(msg); },
 });
 let lastHurt = '';
+function hurtPlayer(msg) {
+  if (!player.alive) return;
+  if (player.shield > 0) { setBandaids(player.shield - 1); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
+  else { lastHurt = msg; die('hit'); }
+}
 function collectMoth(mo) {
   const at = mo.m.getWorldPosition(new THREE.Vector3());
   world.remove(mo.m); moths.splice(moths.indexOf(mo), 1);
@@ -475,9 +475,10 @@ const shop = createShop({
   sfx, bgOnly, wallet: walletApi, bandaids: bandaidApi, onLeave: leaveShop,
   mainScene: scene, player, LANES, get speed() { return speed; },
   canHeckle: () => state === 'run' && player.alive && !boss.quiet(),
-  // somewhere she can drop spikes: on a roof, not near a gap's edge, and clear of other obstacles
+  // somewhere she can call lightning down: on a roof, not near a gap's edge, and clear of other obstacles
+  hurt: (msg) => hurtPlayer(msg),
+  fx(f, sh) { flash = Math.max(flash, f); shake = Math.max(shake, sh); },
   freeAt: (z) => blocks.some((b) => z < b.z0 - 2 && z > b.z1 + 2.5) && !obstacles.some((o) => !o.dead && o.box.z0 - 2.6 < z && o.box.z1 + 2.6 > z),
-  addSpikes: (lane, z) => addObstacle('spikes', lane, z),
 });
 
 // =================================================================== input
@@ -553,9 +554,8 @@ function updateWorld(dt) {
   if (p.alive) for (const o of obstacles) {
     if (o.dead || Math.abs(o.box.z0 - p.z) > 3) continue;
     if (hits(o.box, p.x, p.y, p.z, h)) {
-      if (o.kind === 'spikes') shop.heckleHit();
       if (p.shield > 0) { setBandaids(p.shield - 1); o.dead = true; sparkle(o.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); world.remove(o.mesh); sfx.shield(); flash = 0.3; }
-      else { if (o.kind === 'spikes') lastHurt = 'Pricked by pink spikes!'; die('hit'); }
+      else die('hit');
     }
   }
   // moths
@@ -585,7 +585,6 @@ function updateWorld(dt) {
   // recycle behind, generate ahead
   if (state === 'run') boss.update(dt);
   shop.updateHeckle(dt, camera);
-  for (const o of obstacles) if (o.kind === 'spikes' && o.mesh.userData.rise < 1) { const u = o.mesh.userData; u.rise = Math.min(1, u.rise + dt * 5); o.mesh.scale.y = 0.01 + u.rise * (1 + Math.sin(u.rise * Math.PI) * 0.4); }
   while (genZ > p.z - 150) generateBlock(speed || 10);
   const behind = p.z + 25;
   blocks = blocks.filter((b) => (b.z1 > behind ? (world.remove(b.mesh), false) : true));
@@ -623,6 +622,7 @@ function updateCamera(dt, t) {
   camera.position.copy(camPos);
   if (shake > 0) { shake -= dt; camera.position.x += rand(-0.15, 0.15) * shake * 2; camera.position.y += rand(-0.15, 0.15) * shake * 2; }
   camera.lookAt(camLook);
+  if (debugCam && shop.hecklerObj?.visible) { const g = shop.hecklerObj.position; camera.position.set(g.x * 0.6, g.y + 0.5, g.z + 2.6); camera.lookAt(g.x, g.y + 0.3, g.z); }
   sky.position.copy(camera.position);
   moon.position.set(camera.position.x + 30, 34, camera.position.z - 130); moon.lookAt(camera.position);
   for (const s of skyline) { s.position.set(camera.position.x, s.userData.y, camera.position.z - s.userData.dist); }
@@ -638,7 +638,7 @@ function updateHUD() {
 
 // =================================================================== loop + boot
 const clock = new THREE.Clock(); let elapsed = 0, simScale = 1, frames = 0;
-let stepHook = null;   // automated playtests can steer from inside the fixed-step loop
+let stepHook = null, debugCam = false;   // automated playtests can steer from inside the fixed-step loop
 function frame() {
   requestAnimationFrame(frame); frames++;
   const raw = Math.min(clock.getDelta(), 0.1);
@@ -677,7 +677,7 @@ frame();
 
 window.moths = {
   get boss() { return boss.state; },
-  heckle() { shop.heckle(); }, get heckling() { return shop.heckling; }, get spikes() { return obstacles.filter((o) => o.kind === 'spikes').map((o) => ({ lane: o.lane, dz: +(player.z - o.box.z0).toFixed(1) })); },
+  heckle(side) { shop.heckle(side); }, set debugCam(v) { debugCam = v; }, get heckling() { return shop.heckling; }, get bolts() { return shop.hazards().map((h) => ({ lane: h.lane, phase: h.phase, dz: +(player.z - h.z).toFixed(1) })); },
   set shopOff(v) { shopOn = !v; },
   get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },
   set wallet(n) { wallet = walletShown = n; saveWallet(); showWallet(); },
@@ -713,6 +713,8 @@ window.moths = {
     const p = player; if (!p.alive || state !== 'run') return;
     const ahead = obstacles.filter((o) => !o.dead && o.box.z1 < p.z + 0.3 && o.box.z1 > p.z - 7.5);
     const laneBlocked = (l, kinds) => ahead.some((o) => LANES[l] > o.box.x0 && LANES[l] < o.box.x1 && (!kinds || kinds.includes(o.kind)));
+    const zap = shop.hazards().filter((h) => h.z < p.z + 1.2 && h.z > p.z - speed * 1.3).map((h) => h.lane);
+    if (zap.includes(p.lane)) { const ok = [0, 1, 2].filter((l) => !zap.includes(l) && !laneBlocked(l)).sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane))[0]; if (ok !== undefined && ok !== p.lane) { ok < p.lane ? act.left() : act.right(); return; } }
     const near = ahead.filter((o) => p.x + 0.3 > o.box.x0 && p.x - 0.3 < o.box.x1).sort((a, b) => b.box.z1 - a.box.z1)[0];
     const edge = blocks.find((b) => p.z <= b.z0 && p.z >= b.z1);
     if (edge && p.grounded && p.z - edge.z1 < speed * 0.22) { act.jump(); return; }
@@ -722,6 +724,6 @@ window.moths = {
     const free = [0, 1, 2].filter((l) => !laneBlocked(l)).sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane));
     if (free.length && Math.abs(free[0] - p.lane) === 1) { free[0] < p.lane ? act.left() : act.right(); return; }
     if (free.length && Math.abs(free[0] - p.lane) === 2) { act.left === undefined; free[0] < p.lane ? act.left() : act.right(); return; }
-    if ((near.kind === 'crate' || near.kind === 'spikes') && d < speed * 0.2) act.jump();
+    if (near.kind === 'crate' && d < speed * 0.2) act.jump();
   },
 };

@@ -1,7 +1,7 @@
 // The shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=20';
+import { PAL, T, toon } from './art.js?v=21';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const PINK = '#ff7fb6', PINK_SOFT = '#ffc2dc', PINK_DEEP = '#c94f86';
@@ -156,99 +156,162 @@ export function createShop(ctx) {
     if (ctx.mainScene) {
       const r = skClone(gltf.scene);
       r.traverse((o) => { if (!o.isMesh) return; o.frustumCulled = false; o.material = toon({ map: o.material.map, color: PINK_SOFT, emissive: new THREE.Color(PINK), emissiveIntensity: 0.45 }); });
-      const g = new THREE.Group(); g.add(r);
+      const lie = new THREE.Group(); lie.add(r); r.position.x = 0; lie.rotation.z = Math.PI / 2; lie.position.x = 0.85;
+      const g = new THREE.Group(); g.add(lie);
       const aura = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }))); aura.position.y = 0.9; aura.scale.set(2.4, 3, 1); g.add(aura);
       g.scale.setScalar(1.25); g.visible = false; ctx.mainScene.add(g);
-      const rb = rig(r, gltf); P.mixers.pop(); rb.g = g; H.b = rb;
+      const rb = rig(r, gltf); P.mixers.pop(); rb.g = g; H.b = rb; H.lie = lie;
     }
   }
 
-  // ---------------------------------------------------------------- miss the shop and she comes after you: floats over the side roofs and drops pink spikes for ~10 s
-  const SPIKE = new THREE.Group();
-  {
-    const mSpike = toon({ color: '#ff9cc8', emissive: new THREE.Color(PINK), emissiveIntensity: 0.4 });
-    const base = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.07, 0.85), toon({ color: PINK_DEEP })); base.position.y = 0.035; SPIKE.add(base);
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
-      const c = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.46, 7), mSpike); c.position.set(-0.45 + i * 0.3 + (j ? 0.15 : 0), 0.28, -0.18 + j * 0.36); SPIKE.add(c);
-    }
-  }
-  function makeSpikes() {
-    const g = SPIKE.clone();
-    const glow = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending }))); glow.scale.set(2, 1.2, 1); glow.position.y = 0.3; g.add(glow);
-    g.userData.rise = 0; g.scale.y = 0.01;
-    return g;
+  // ---------------------------------------------------------------- miss the shop and she comes after you: she lounges in the air over the side roofs
+  // for ~20 s, smug as anything, calling down grey-white lightning onto the roof ahead of you
+  const ACTIVE = 20;
+  const ringTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = 'rgba(60,56,70,.35)'; g.beginPath(); g.arc(64, 64, 54, 0, 7); g.fill();
+    g.strokeStyle = '#3d3a48'; g.lineWidth = 11; g.beginPath(); g.arc(64, 64, 50, 0, 7); g.stroke();
+    g.strokeStyle = 'rgba(250,250,255,1)'; g.lineWidth = 5; g.shadowColor = '#ffffff'; g.shadowBlur = 8;
+    g.setLineDash([12, 8]); g.beginPath(); g.arc(64, 64, 50, 0, 7); g.stroke(); g.setLineDash([]);
+    g.lineWidth = 3;
+    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2 + Math.random() * 0.4; let x = 64, y = 64; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += Math.cos(a + rand(-0.7, 0.7)) * 11; y += Math.sin(a + rand(-0.7, 0.7)) * 11; g.lineTo(x, y); } g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const scorchTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 4, 64, 64, 60); gr.addColorStop(0, 'rgba(40,36,44,.95)'); gr.addColorStop(0.55, 'rgba(70,64,74,.7)'); gr.addColorStop(1, 'rgba(70,64,74,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    g.strokeStyle = 'rgba(235,235,250,.9)'; g.lineWidth = 2.5;
+    for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; let x = 64, y = 64; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += Math.cos(a + rand(-0.6, 0.6)) * 10; y += Math.sin(a + rand(-0.6, 0.6)) * 10; g.lineTo(x, y); } g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const cloudTex = (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
+    for (let i = 0; i < 9; i++) { const x = 40 + i * 22 + rand(-6, 6), y = 70 + rand(-14, 10), r = rand(22, 36);
+      const gr = g.createRadialGradient(x, y, 2, x, y, r); gr.addColorStop(0, 'rgba(120,118,128,.95)'); gr.addColorStop(1, 'rgba(120,118,128,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const boltCore = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false, fog: false });
+  const boltGlow = new THREE.MeshBasicMaterial({ color: '#c9cbd8', transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  function boltMesh(x, z) {
+    const pts = []; let px = x, pz = z;
+    for (let y = 13; y >= 0; y -= rand(0.8, 1.4)) { pts.push(new THREE.Vector3(px, y, pz)); px = x + rand(-0.45, 0.45); pz = z + rand(-0.3, 0.3); }
+    pts.push(new THREE.Vector3(x, 0, z));
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.1);
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.07, 5), boltCore));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, 0.26, 6), boltGlow));
+    // a little fork off to one side
+    const k = Math.floor(pts.length * rand(0.3, 0.6)); const f0 = pts[k]; const fork = [f0, f0.clone().add(new THREE.Vector3(rand(-1.4, 1.4), -rand(1.2, 2.2), rand(-0.5, 0.5)))];
+    fork.push(fork[1].clone().add(new THREE.Vector3(rand(-0.8, 0.8), -rand(0.8, 1.6), 0)));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(fork), 10, 0.04, 4), boltCore));
+    return bgOnly(g);
   }
   const HL = {
-    missed: ['Oh, so you didn\u2019t need my help?', 'Wow. You just ran right past me.', 'Rude! I had bandaids on sale!', 'Fine. I see how it is.', 'You missed my shop! On purpose?!', 'Too good for my bandaids, huh?'],
-    drop: ['Watch your step~', 'Oops, did I drop these?', 'Should\u2019ve stopped by!', 'Pointy, aren\u2019t they?', 'Bet you wish you had a bandaid now!', 'Hehe, left or right?', 'My shop was RIGHT THERE.'],
-    hit: ['Ouch! A bandaid would help with that~', 'Told you that you needed my help!'],
-    bye: ['Hmph. Come visit next time!', 'Okay, okay, I\u2019m done. Bye!', 'Next time, come in!'],
+    missed: ['Oh, so you didn’t need my help?', 'Wow. You just ran right past me.', 'Rude! I had bandaids on sale!', 'Fine. I see how it is.', 'You missed my shop! On purpose?!', 'Too good for my bandaids, huh?'],
+    drop: ['Watch your step~', 'Zap! Hehe.', 'Should’ve stopped by!', 'Shocking, isn’t it?', 'Bet you wish you had a bandaid now!', 'Left or right? Hehe.', 'My shop was RIGHT THERE.', 'I could do this all day~', 'Ooh, that one was close!', 'Still think you don’t need me?'],
+    hit: ['Ouch! A bandaid would help with that~', 'Told you that you needed my help!', 'Hehe, crispy!'],
+    bye: ['Hmph. Come visit next time!', 'Okay, okay, I’m done. Bye!', 'Next time, come in!'],
   };
-  const H = { b: null, on: false, t: 0, side: 1, nextDrop: 0, leaving: false, said: 0, orbs: [] };
+  const H = { b: null, lie: null, on: false, t: 0, side: 1, nextDrop: 0, leaving: false, said: 0, strikes: [] };
   const bubble = document.getElementById('heckle');
   let bubbleT = 0;
-  function heckleSay(kind) { bubble.textContent = pick(HL[kind]); bubble.classList.add('on'); bubbleT = 2.4; }
-  const orbMat = new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-  function heckle() {
+  function heckleSay(kind) { bubble.textContent = pick(HL[kind]); bubble.classList.add('on'); bubbleT = 2.6; }
+  function heckle(side) {
     if (!H.b || H.on) return;
     const p = ctx.player;
-    H.on = true; H.leaving = false; H.t = 0; H.side = Math.random() < 0.5 ? -1 : 1; H.nextDrop = 2.2;
-    H.b.g.visible = true; H.b.g.position.set(H.side * 3, 7, p.z + 5);
-    anim(H.b, 'Fly', { fade: 0 }); sfx.giggle();
+    H.on = true; H.leaving = false; H.t = 0; H.said = 0; H.side = side || (Math.random() < 0.5 ? -1 : 1); H.nextDrop = 2.4;
+    H.b.g.visible = true; H.b.g.position.set(H.side * 3, 8, p.z + 5);
+    anim(H.b, 'Lounge', { fade: 0 }); sfx.giggle();
     setTimeout(() => { if (H.on) heckleSay('missed'); }, 500);
   }
   function stopHeckle(say = true) {
     if (!H.on || H.leaving) return;
-    H.leaving = true; H.t = Math.max(H.t, 10); if (say) heckleSay('bye');
-    if (H.b) anim(H.b, 'Twirl');
+    H.leaving = true; H.t = Math.max(H.t, ACTIVE); if (say) heckleSay('bye');
   }
+  function clearStrike(st) { for (const o of [st.ring, st.cloud, st.bolt, st.scorch, st.flare]) if (o) ctx.mainScene.remove(o); }
   function resetHeckle() {
     H.on = false; H.leaving = false; if (H.b) H.b.g.visible = false; bubble.classList.remove('on'); bubbleT = 0;
-    for (const o of H.orbs) ctx.mainScene.remove(o.s); H.orbs.length = 0;
+    for (const st of H.strikes) clearStrike(st); H.strikes.length = 0;
   }
-  function dropSpikes() {
+  // call lightning down on one or two lanes a little way ahead (never all three)
+  function strike() {
     const p = ctx.player;
-    const n = Math.random() < 0.3 ? 2 : 1;
+    const n = Math.random() < 0.4 ? 2 : 1;
     const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, n);
-    // aim for the lane you're in more often than not
     if (n === 1 && Math.random() < 0.55) lanes[0] = p.lane;
-    let z = p.z - (ctx.speed * 1.35 + 6);
+    let z = p.z - (ctx.speed * 1.05 + 2);
     for (let k = 0; k < 4 && !ctx.freeAt(z); k++) z -= 3;
     if (!ctx.freeAt(z)) return false;
-    const from = H.b.g.position.clone().add(new THREE.Vector3(-H.side * 0.4, 1.3, 0));
     for (const l of lanes) {
-      const s = bgOnly(new THREE.Sprite(orbMat)); s.scale.setScalar(0.7); s.position.copy(from); ctx.mainScene.add(s);
-      H.orbs.push({ s, from, lane: l, z, t: 0 });
+      const x = ctx.LANES[l];
+      const ring = bgOnly(new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, depthWrite: false })));
+      ring.rotation.x = -Math.PI / 2; ring.position.set(x, 0.04, z); ctx.mainScene.add(ring);
+      const cloud = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, transparent: true, opacity: 0, depthWrite: false })));
+      cloud.scale.set(5, 2.5, 1); cloud.position.set(x, 11, z); ctx.mainScene.add(cloud);
+      H.strikes.push({ lane: l, x, z, t: 0, phase: 'warn', ring, cloud, bolt: null, scorch: null, flare: null, hurt: false });
     }
-    anim(H.b, 'Clap', { once: true, after: 'Fly', fade: 0.1 }); sfx.giggle();
-    if (H.said < 3 && Math.random() < 0.6) { heckleSay('drop'); H.said++; }
+    sfx.crackle();
+    if (H.said < 6 && Math.random() < 0.5) { heckleSay('drop'); H.said++; }
     return true;
+  }
+  const WARN = 0.9, BOLT = 0.32, BURN = 1.3;
+  function updateStrikes(dt) {
+    const p = ctx.player;
+    for (const st of [...H.strikes]) {
+      st.t += dt;
+      if (st.phase === 'warn') {
+        const k = st.t / WARN;
+        st.ring.material.opacity = 0.5 + 0.5 * Math.abs(Math.sin(st.t * 18));
+        st.ring.rotation.z += dt * 3; st.ring.scale.setScalar(1.25 - k * 0.3);
+        st.cloud.material.opacity = Math.min(0.9, k * 1.4); st.cloud.position.y = 11 + Math.sin(st.t * 9) * 0.1;
+        if (st.t >= WARN) {
+          st.phase = 'bolt'; st.t = 0; ctx.mainScene.remove(st.ring); st.ring = null;
+          st.bolt = boltMesh(st.x, st.z); ctx.mainScene.add(st.bolt);
+          st.flare = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffffff', transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending })));
+          st.flare.scale.setScalar(3.2); st.flare.position.set(st.x, 0.5, st.z); ctx.mainScene.add(st.flare);
+          st.scorch = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), new THREE.MeshBasicMaterial({ map: scorchTex, transparent: true, depthWrite: false }));
+          st.scorch.rotation.x = -Math.PI / 2; st.scorch.position.set(st.x, 0.03, st.z); bgOnly(st.scorch); ctx.mainScene.add(st.scorch);
+          sfx.thunder(); ctx.fx?.(0.28, 0.25);
+        }
+      } else if (st.phase === 'bolt') {
+        st.bolt.visible = Math.sin(st.t * 70) > -0.4;
+        if (st.t > BOLT * 0.5 && !st.reflash) { st.reflash = true; ctx.mainScene.remove(st.bolt); st.bolt = boltMesh(st.x, st.z); ctx.mainScene.add(st.bolt); }
+        st.flare.material.opacity = 1 - st.t / BOLT * 0.5;
+        if (st.t >= BOLT) { st.phase = 'burn'; st.t = 0; ctx.mainScene.remove(st.bolt); st.bolt = null; }
+      } else {
+        const k = st.t / BURN;
+        st.flare.material.opacity = (0.35 + 0.35 * Math.random()) * (1 - k); st.flare.scale.setScalar(1.6 + Math.random() * 0.6);
+        st.scorch.material.opacity = 1 - k * k; st.cloud.material.opacity = 0.9 * (1 - k);
+        if (st.t >= BURN) { clearStrike(st); H.strikes.splice(H.strikes.indexOf(st), 1); continue; }
+      }
+      // the bolt hits at any height; the crackling scorch mark only hurts if you run through it on the ground
+      if (!st.hurt && p.alive && st.phase !== 'warn' && Math.abs(p.x - st.x) < 0.65 && Math.abs(p.z - st.z) < 0.9 && (st.phase === 'bolt' || p.y < 0.6)) {
+        st.hurt = true; ctx.hurt('Zapped by her lightning!'); if (H.on && !H.leaving) heckleSay('hit');
+      }
+    }
   }
   function updateHeckle(dt, camera) {
     if (bubbleT > 0) { bubbleT -= dt; if (bubbleT <= 0) bubble.classList.remove('on'); }
-    for (const o of [...H.orbs]) {
-      o.t += dt / 0.5; const t = Math.min(1, o.t);
-      const to = new THREE.Vector3(ctx.LANES[o.lane], 0.4, o.z);
-      o.s.position.lerpVectors(o.from, to, t); o.s.position.y += Math.sin(t * Math.PI) * 2;
-      if (o.t >= 1) { ctx.mainScene.remove(o.s); H.orbs.splice(H.orbs.indexOf(o), 1); ctx.addSpikes(o.lane, o.z); sfx.dodge(); }
-    }
+    updateStrikes(dt);
     if (!H.on || !H.b) return;
     const p = ctx.player, b = H.b, g = b.g;
     H.t += dt; b.mixer.update(dt);
-    if (!H.leaving && (H.t > 10.5 || !ctx.canHeckle())) stopHeckle(H.t > 10.5);
+    if (!H.leaving && (H.t > ACTIVE + 0.5 || !ctx.canHeckle())) stopHeckle(H.t > ACTIVE + 0.5);
     let want;
-    if (H.leaving) want = new THREE.Vector3(H.side * 7, 9, p.z - 4);
-    else want = new THREE.Vector3(H.side * (4.4 + Math.sin(H.t * 0.9) * 0.3), 2.1 + Math.sin(H.t * 2.2) * 0.25, p.z - 3.2);
-    g.position.lerp(want, Math.min(1, dt * (H.leaving ? 1.6 : 3)));
-    g.rotation.y = Math.PI - H.side * 0.55; g.rotation.z = Math.sin(H.t * 1.7) * 0.06;
-    if (!H.leaving && H.t > H.nextDrop && H.t < 10) { H.nextDrop = H.t + (dropSpikes() ? rand(1.0, 1.4) : 0.3); }
-    if (H.leaving && H.t > 13.5) { H.on = false; g.visible = false; }
-    // keep her speech bubble over her head
-    const v = g.position.clone().add(new THREE.Vector3(0, 2.6, 0)).project(camera);
+    if (H.leaving) want = new THREE.Vector3(H.side * 7, 10, p.z - 4);
+    else want = new THREE.Vector3(H.side * (3.4 + Math.sin(H.t * 0.7) * 0.2), 3.1 + Math.sin(H.t * 1.6) * 0.3, p.z - 5.5);
+    g.position.lerp(want, Math.min(1, dt * (H.leaving ? 1.4 : 3)));
+    g.rotation.y = Math.PI - H.side * 0.35; g.rotation.x = Math.sin(H.t * 1.1) * 0.05;
+    H.lie.rotation.z = Math.PI / 2 + Math.sin(H.t * 1.3) * 0.05;
+    if (!H.leaving && H.t > H.nextDrop && H.t < ACTIVE) { H.nextDrop = H.t + (strike() ? rand(1.1, 1.6) : 0.3); }
+    if (H.leaving && H.t > ACTIVE + 3.5) { H.on = false; g.visible = false; }
+    // keep her speech bubble over her
+    const v = g.position.clone().add(new THREE.Vector3(0, 1.9, 0)).project(camera);
     const x = Math.min(innerWidth - 150, Math.max(150, (v.x + 1) / 2 * innerWidth)), y = Math.max(150, (1 - v.y) / 2 * innerHeight);
     bubble.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
   }
-  function heckleHit() { if (H.on && !H.leaving) heckleSay('hit'); }
+  function hazards() { return H.strikes.map((st) => ({ lane: st.lane, z: st.z, phase: st.phase })); }
 
   // ---------------------------------------------------------------- UI + flow
   const $ = (id) => document.getElementById(id);
@@ -322,5 +385,5 @@ export function createShop(ctx) {
   }
   function render(ink, t) { ink.render(scene, camera, t); }
 
-  return { init, makeSpikes, heckle, stopHeckle, resetHeckle, updateHeckle, heckleHit, get heckling() { return H.on; }, makeSign, animSign, open, leave, buy, update, render, get open_() { return S.open; }, get busy() { return S.busy; }, PRICE };
+  return { get hecklerObj() { return H.b?.g; }, init, heckle, stopHeckle, resetHeckle, updateHeckle, hazards, get heckling() { return H.on; }, makeSign, animSign, open, leave, buy, update, render, get open_() { return S.open; }, get busy() { return S.busy; }, PRICE };
 }

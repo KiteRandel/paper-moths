@@ -22,7 +22,7 @@ Amara chases glowing paper moths across a sepia town at dusk. Leap the gaps betw
 - Every moth you catch flutters into your **moth purse** in the bottom-right corner. Golden moths count as 5. The purse is saved between runs.
 - 🩹 A **bandaid** absorbs one bump. You can carry up to 3.
 - 🎀 A **ribbon** whisks nearby moths straight into your purse for a few seconds.
-- 🛍️ Every so often a pink **SHOP** sign stands over one lane. Run through its curtain to visit a little shop where a pink Amara sells bandaids for 50 moths each. Press Enter to buy, Esc or Space to head back to the roof. Skip the shop and she takes it personally: she floats alongside you over the rooftops for about 10 seconds, teasing you and dropping pink spikes ahead of you. Jump them or switch lanes, since there's always a way through.
+- 🛍️ Every so often a pink **SHOP** sign stands over one lane. Run through its curtain to visit a little shop where a pink Amara sells bandaids for 50 moths each. Press Enter to buy, Esc or Space to head back to the roof. Skip the shop and she takes it personally: she lounges smugly in the air over the rooftops for about 20 seconds, teasing you and calling grey-white lightning down onto the roof ahead. A crackling ring marks where each bolt will land, and the scorched spot it leaves still hurts for a moment, so switch lanes. There's always a lane that's safe.
 - Things get faster the longer you run. Your best score is saved in your browser.
 
 ## Bosses
