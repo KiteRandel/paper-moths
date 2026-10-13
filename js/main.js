@@ -1,10 +1,10 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=16';
-import { InkPass } from './post.js?v=16';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=16';
-import { createBosses } from './boss.js?v=16';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=17';
+import { InkPass } from './post.js?v=17';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=17';
+import { createBosses } from './boss.js?v=17';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -361,7 +361,7 @@ function startRun() {
   initAudio(); sfx.click(); setMusic(true);
   $('title').classList.add('hidden'); $('over').classList.add('hidden'); $('hud').classList.remove('hidden');
   if (state !== 'title') resetRun();
-  state = 'run'; speed = 9; play('Run');
+  state = 'run'; speed = 12; play('Run');
 }
 function die(kind) {
   if (!player.alive) return;
@@ -433,7 +433,7 @@ function updatePlayer(dt) {
   const p = player;
   if (state === 'run') {
     runT += dt;
-    speed = Math.min(21, 9 + runT * 0.11);
+    speed = Math.min(21, 12 + runT * 0.09);
     p.z -= speed * dt; dist += speed * dt;
   } else if (state === 'dead') {
     speed = Math.max(0, speed - 30 * dt); p.z -= speed * dt;
@@ -561,7 +561,7 @@ function frame() {
     updateFx(dt, elapsed); updateCamera(dt, elapsed);
   }
   if (state === 'run') updateHUD();
-  tickMusic(1 + (speed - 9) / 40);
+  tickMusic(1 + (speed - 12) / 40);
   flash = Math.max(0, flash - 0.03); ink.quad.material.uniforms.flash.value = flash;
   ink.render(scene, camera, elapsed);
 }
