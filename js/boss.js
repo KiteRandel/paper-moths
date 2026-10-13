@@ -1,7 +1,7 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=13';
+import { PAL, T, toon } from './art.js?v=16';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -148,7 +148,7 @@ export function createBosses(ctx) {
   }
   const LEGEND = {
     twins: '<span><b class="b">● blue wave</b> keep running, don\u2019t move</span><span><b class="o">● orange wave</b> slide!</span>',
-    wrath: '<span><b class="r">● red crack</b> a hole, stay away</span><span><b class="y">● gold crack</b> Joy\u2019s spring: bounce up and smack Wrath!</span><span><b class="r">gold flickering red</b> Wrath will smash it</span>',
+    wrath: '<span><b class="r">● red</b> crater</span><span><b class="o">🔥 flame</b> fire pillar, switch lanes</span><span><b class="y">● gold</b> Joy\u2019s spring, bounce into Wrath</span><span><b class="r">gold + red flicker</b> trap</span>',
     fury: '<span><b class="r">Wrath has Joy!</b> no springs for 10 seconds</span><span>the roof is cracking everywhere, find the safe lane</span>',
     duet: '<span><b class="p">♪ low</b> left · <b class="p">♪ mid</b> centre · <b class="p">♪ high</b> right</span><span>then <b class="p">sing it back</b>!</span>',
   };
@@ -232,6 +232,27 @@ export function createBosses(ctx) {
     g.beginPath(); g.arc(64, 64, 12, 0, 7); g.fillStyle = '#ffe680'; g.fill();
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
   })();
+  const fireCrackTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.strokeStyle = '#ff8a1a'; g.lineWidth = 6; g.shadowColor = '#ff3a00'; g.shadowBlur = 14;
+    for (let i = 0; i < 8; i++) { g.beginPath(); g.moveTo(64, 64); let x = 64, y = 64; const a = (i / 8) * Math.PI * 2 + Math.random() * 0.3; for (let k = 0; k < 4; k++) { x += Math.cos(a + rand(-0.5, 0.5)) * 15; y += Math.sin(a + rand(-0.5, 0.5)) * 15; g.lineTo(x, y); } g.stroke(); }
+    // a flame mark in the middle
+    g.shadowBlur = 8; g.fillStyle = '#ffd04a'; g.beginPath(); g.moveTo(64, 30); g.bezierCurveTo(88, 58, 84, 92, 64, 96); g.bezierCurveTo(44, 92, 40, 58, 64, 30); g.fill();
+    g.fillStyle = '#ff6a1a'; g.beginPath(); g.moveTo(64, 56); g.bezierCurveTo(76, 72, 74, 90, 64, 92); g.bezierCurveTo(54, 90, 52, 72, 64, 56); g.fill();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const fireTex = (() => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 256; const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 256, 0, 0); gr.addColorStop(0, 'rgba(255,240,170,1)'); gr.addColorStop(0.25, 'rgba(255,170,40,.95)'); gr.addColorStop(0.6, 'rgba(240,70,20,.75)'); gr.addColorStop(1, 'rgba(120,20,10,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
+    g.globalCompositeOperation = 'destination-in';   // ragged flame edges, one mask path
+    g.beginPath(); g.moveTo(32, 0);
+    const rows = []; for (let y = 0; y <= 256; y += 8) rows.push([y, 32 * (0.7 + 0.3 * Math.random()) * (0.35 + 0.65 * (y / 256))]);
+    for (const [y, w] of rows) g.lineTo(32 + w, y);
+    for (const [y, w] of rows.reverse()) g.lineTo(32 - w, y);
+    g.closePath(); g.fillStyle = '#fff'; g.fill();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
   function wrathNext(delay) { after(delay, () => { if (st.mode === 'fight' && !st.air && !st.fury) makeRow(); }); }
   function makeRow() {
     const p = player, r = st.round;
@@ -243,14 +264,15 @@ export function createBosses(ctx) {
     const lanes = [0, 1, 2].sort(() => Math.random() - 0.5);
     if (Math.random() < 0.6) { lanes.splice(lanes.indexOf(p.lane), 1); lanes.unshift(p.lane); }   // Wrath likes to aim at you
     const row = [];
-    for (let i = 0; i < reds; i++) row.push({ lane: lanes[i], kind: 'red' });
+    const fireChance = [0.25, 0.4, 0.5, 0.55][Math.min(3, Math.floor(r))];
+    for (let i = 0; i < reds; i++) row.push({ lane: lanes[i], kind: 'red', fire: Math.random() < fireChance });
     if (gold) row.push({ lane: lanes[reds], kind: 'gold' });
     // the angrier Wrath gets, the more often she smashes Joy's spring (never twice in a row)
     const breakSpring = gold && !st.lastBroken && Math.random() < [0.25, 0.4, 0.55, 0.6][Math.min(3, Math.floor(r))];
     st.lastBroken = breakSpring;
     st.rowsNoSpring = gold && !breakSpring ? 0 : st.rowsNoSpring + 1;
     for (const c of row) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), new THREE.MeshBasicMaterial({ map: c.kind === 'red' ? crackTex : goldCrackTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), new THREE.MeshBasicMaterial({ map: c.kind === 'red' ? (c.fire ? fireCrackTex : crackTex) : goldCrackTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
       m.rotation.x = -Math.PI / 2; m.position.set(LANES[c.lane], 0.03, z); bgOnly(m); world.add(m);
       c.crack = { mesh: m, born: st.t, tele }; cracks.push(c.crack);
       if (c.kind === 'gold' && breakSpring) {   // a red flicker over the gold: Wrath has her eye on this one
@@ -270,7 +292,7 @@ export function createBosses(ctx) {
     ctx.fx(0.15, 0.45); sfx.slam();
     for (const c of s.row) {
       world.remove(c.crack.mesh); cracks.splice(cracks.indexOf(c.crack), 1);
-      if (c.kind === 'red') { makeHole(c.lane, s.z); ctx.sparkle(new THREE.Vector3(LANES[c.lane], 0.3, s.z), PAL.dusk, 14); }
+      if (c.kind === 'red') { makeHole(c.lane, s.z, c.fire); ctx.sparkle(new THREE.Vector3(LANES[c.lane], 0.3, s.z), PAL.dusk, 14); }
       else { if (c.warn) { world.remove(c.warn.mesh); cracks.splice(cracks.indexOf(c.warn), 1); } c.spring = makeSpring(c.lane, s.z); ctx.sparkle(new THREE.Vector3(LANES[c.lane], 0.5, s.z), GOLD, 16); sfx.springPlant(); }
     }
     s.phase = 'rise';
@@ -343,9 +365,10 @@ export function createBosses(ctx) {
     const safe = near[Math.floor(Math.random() * near.length)];
     const others = [0, 1, 2].filter((l) => l !== safe);
     const reds = Math.random() < 0.75 ? others : [others[Math.floor(Math.random() * 2)]];
-    const row = { z, safe, reds, cracks: [], done: false };
+    const fires = reds.filter(() => Math.random() < 0.3);
+    const row = { z, safe, reds, fires, cracks: [], done: false };
     for (const l of reds) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), new THREE.MeshBasicMaterial({ map: crackTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), new THREE.MeshBasicMaterial({ map: fires.includes(l) ? fireCrackTex : crackTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
       m.rotation.x = -Math.PI / 2; m.position.set(LANES[l], 0.03, z); bgOnly(m); world.add(m);
       const c = { mesh: m, born: st.t, tele }; cracks.push(c); row.cracks.push(c);
     }
@@ -354,7 +377,7 @@ export function createBosses(ctx) {
       row.done = true;
       for (const c of row.cracks) { world.remove(c.mesh); const i = cracks.indexOf(c); if (i >= 0) cracks.splice(i, 1); }
       if (st.mode !== 'fight') return;
-      for (const l of reds) { makeHole(l, z); ctx.sparkle(new THREE.Vector3(LANES[l], 0.3, z), PAL.dusk, 10); }
+      for (const l of reds) { makeHole(l, z, fires.includes(l)); ctx.sparkle(new THREE.Vector3(LANES[l], 0.3, z), PAL.dusk, 10); }
       ctx.fx(0.05, 0.25); sfx.slam();
     });
     return safe;
@@ -368,16 +391,42 @@ export function createBosses(ctx) {
     st.rowsNoSpring = 9; st.lastBroken = true;      // the next row always has a real spring
     wrathNext(0.9);
   }
-  function makeHole(lane, z) {
+  function makeHole(lane, z, fire = false) {
     const g = new THREE.Group(); g.position.set(LANES[lane], 0, z);
+    let flame = null;
+    if (fire) {
+      flame = new THREE.Group();
+      const mat = new THREE.MeshBasicMaterial({ map: fireTex, color: '#ffffff', transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide, fog: false });
+      const core = new THREE.MeshBasicMaterial({ map: fireTex, color: '#fff3c0', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+      for (const ry of [0, Math.PI / 3, -Math.PI / 3]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 7), mat); pl.position.y = 3.5; pl.rotation.y = ry; flame.add(pl); }
+      for (const ry of [Math.PI / 6, -Math.PI / 6]) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 5.5), core); pl.position.y = 2.75; pl.rotation.y = ry; flame.add(pl); }
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ff7a1a', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.set(4, 4, 1); glow.position.y = 0.8; flame.add(glow);
+      bgOnly(flame); g.add(flame); flame.userData.mat = mat;
+      sfx.fireburst();
+    }
     const pit = new THREE.Mesh(new THREE.PlaneGeometry(1.62, 3.4), pitMat); pit.rotation.x = -Math.PI / 2; pit.position.y = 0.015; g.add(pit);
     for (let i = 0; i < 9; i++) {
       const d = new THREE.Mesh(new THREE.BoxGeometry(rand(0.2, 0.45), 0.08, rand(0.2, 0.4)), debrisMat);
       const side = i % 2 ? 1 : -1; d.position.set(side * rand(0.7, 0.95), 0.05, rand(-1.8, 1.8)); d.rotation.set(rand(-0.4, 0.4), rand(0, 3), rand(-0.4, 0.4)); g.add(d);
     }
-    world.add(g); holes.push({ lane, z0: z + 1.7, z1: z - 1.7, mesh: g });
+    world.add(g); holes.push({ lane, z, z0: z + 1.7, z1: z - 1.7, mesh: g, flame, hurt: false });
   }
-  function holeAt(x, z) { return holes.some((h) => z <= h.z0 && z >= h.z1 && Math.abs(x - LANES[h.lane]) < 0.75); }
+  // craters no longer drop you through the roof: stepping in one, or touching a fire pillar at any height, hurts
+  function holeAt() { return false; }
+  function crateHazards(dt, t) {
+    const p = player;
+    for (const h of holes) {
+      if (h.flame) {
+        h.flame.scale.set(1 + Math.sin(t * 13 + h.z) * 0.08, 1 + Math.sin(t * 9 + h.z) * 0.09 + Math.sin(t * 23) * 0.04, 1);
+        h.flame.rotation.y = Math.sin(t * 5 + h.z) * 0.25;
+      }
+      if (h.hurt || !p.alive) continue;
+      const inLane = Math.abs(p.x - LANES[h.lane]) < 0.65;
+      if (!inLane) continue;
+      if (h.flame && Math.abs(p.z - h.z) < 1.0 && p.y < 6) { h.hurt = true; ctx.hurt('Burned by Wrath\u2019s fire!'); ctx.sparkle(new THREE.Vector3(p.x, 1, p.z), '#ff7a1a', 16); }
+      else if (Math.abs(p.z - h.z) < 1.45 && p.y < 0.35) { h.hurt = true; ctx.hurt('You stepped in a crater!'); ctx.sparkle(new THREE.Vector3(p.x, 0.4, p.z), PAL.dusk, 12); }
+    }
+  }
 
   // ---------------------------------------------------------------- per-frame
   function update(dt) {
@@ -466,6 +515,7 @@ export function createBosses(ctx) {
       }
     }
     if (st.mode === 'fight' && st.kind === 'duet') updateDuetFight(dt, t);
+    crateHazards(dt, t);
     // tidy holes and cracks left behind
     for (const h of [...holes]) if (h.z1 > p.z + 30) { world.remove(h.mesh); holes.splice(holes.indexOf(h), 1); }
     for (const sp of [...springs]) if (sp.z > p.z + 30) { world.remove(sp.mesh); springs.splice(springs.indexOf(sp), 1); }
@@ -696,7 +746,8 @@ export function createBosses(ctx) {
   return {
     init, reset, update, quiet, quietStartsAt, holeAt,
     noteAction() { lastAct = st.t; },
-    get state() { return { mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
+    get state() { return { mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind === 'red' && c.fire ? 'fire' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, fires: r.fires, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, fires: holes.filter((h) => h.flame).length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
+    debugCrater(lane, dz, fire) { makeHole(lane, player.z - dz, fire); },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
     // test hook: pretend some bosses were already beaten and the next one is due now
     skipTo(beaten) { st.beaten = beaten; st.nextAt = ctx.dist + 150; },

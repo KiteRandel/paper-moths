@@ -109,6 +109,7 @@ export const sfx = {
   boing: () => { if (!ctx || snd.muted) return; const t = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = 'triangle';
     o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(720, t + 0.25); o.frequency.exponentialRampToValueAtTime(420, t + 0.5);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55); o.connect(g).connect(master); o.start(t); o.stop(t + 0.6); },
+  fireburst: () => { noise(0.9, 500, 0.35, 0, 0.4); noise(0.5, 1800, 0.12, 0.05, 0.6); },
   growl: () => { if (!ctx || snd.muted) return; const t = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain(); const f = ctx.createBiquadFilter();
     o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(95, t + 0.25); o.frequency.linearRampToValueAtTime(60, t + 0.7);
     f.type = 'lowpass'; f.frequency.value = 420; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);

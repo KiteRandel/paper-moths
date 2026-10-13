@@ -1,10 +1,10 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=13';
-import { InkPass } from './post.js?v=13';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=13';
-import { createBosses } from './boss.js?v=13';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=16';
+import { InkPass } from './post.js?v=16';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=16';
+import { createBosses } from './boss.js?v=16';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -585,6 +585,7 @@ frame();
 
 window.moths = {
   get boss() { return boss.state; },
+  crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); },
   get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
   resetTutorial() { tut.done = false; try { localStorage.removeItem('paperMoths.tutorial'); } catch (_) { /* ignore */ } },
   bossSkip(n) { boss.skipTo(n); },
