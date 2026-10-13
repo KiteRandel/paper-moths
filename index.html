@@ -85,6 +85,10 @@
     @media (max-width: 760px) { #wallet { bottom: 12px; } body.bossing #wallet { bottom: 96px; } }
     /* the shop */
     body.shopping #hud, body.shopping #combo { display: none; }
+    #heckle { position: fixed; left: 0; top: 0; max-width: 260px; padding: 8px 14px; font-weight: 700; font-size: 16px; text-align: center; color: #8a2a5a; border-color: #a8386d; pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 4; white-space: normal; }
+    #heckle.on { opacity: 1; }
+    #heckle::after { content: ''; position: absolute; left: 50%; bottom: -11px; width: 16px; height: 16px; background: var(--paper); border-right: 2.5px solid #a8386d; border-bottom: 2.5px solid #a8386d; transform: translateX(-50%) rotate(45deg); }
+    body.shopping #heckle { display: none; }
     #fade { position: fixed; inset: 0; background: #f3e4ea; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 8; }
     #fade.on { opacity: 1; }
     #shop { position: fixed; inset: 0; pointer-events: none; }
@@ -167,6 +171,7 @@
       <div class="hint"><kbd>Enter</kbd> buy · <kbd>Esc</kbd> or <kbd>Space</kbd> leave</div>
     </div>
   </div>
+  <div id="heckle" class="paper"></div>
   <div id="fade"></div>
 
   <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
@@ -177,6 +182,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=19"></script>
+  <script type="module" src="js/main.js?v=20"></script>
 </body>
 </html>

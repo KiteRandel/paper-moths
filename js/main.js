@@ -1,11 +1,11 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=19';
-import { InkPass } from './post.js?v=19';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=19';
-import { createBosses } from './boss.js?v=19';
-import { createShop } from './shop.js?v=19';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=20';
+import { InkPass } from './post.js?v=20';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=20';
+import { createBosses } from './boss.js?v=20';
+import { createShop } from './shop.js?v=20';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -186,6 +186,7 @@ function addObstacle(kind, lane, z) {
   let mesh, box;
   const x = LANES[lane];
   if (kind === 'crate') { mesh = crate(); box = { x0: x - 0.58, x1: x + 0.58, y0: 0, y1: 0.95, z0: z - 0.5, z1: z + 0.5 }; }
+  else if (kind === 'spikes') { mesh = shop.makeSpikes(); box = { x0: x - 0.6, x1: x + 0.6, y0: 0, y1: 0.42, z0: z - 0.42, z1: z + 0.42 }; }
   else if (kind === 'chimney') { mesh = chimney(); box = { x0: x - 0.55, x1: x + 0.55, y0: 0, y1: 3, z0: z - 0.5, z1: z + 0.5 }; }
   mesh.position.set(x, 0, z); world.add(mesh);
   obstacles.push({ kind, mesh, box, lane });
@@ -392,7 +393,7 @@ function updateTut() {
 }
 
 function resetRun() {
-  boss.reset();
+  boss.reset(); shop.resetHeckle();
   clearWorld();
   player.lane = 1; player.x = 0; player.y = 0; player.vy = 0; player.z = 0; player.grounded = true; player.slideT = 0;
   player.alive = true; player.falling = false; setBandaids(0); player.magnet = 0;
@@ -470,7 +471,14 @@ function leaveShop() {
   state = 'run'; play('Run', 0);
   const b = $('banner'); b.innerHTML = 'Back to the roof!'; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1200);
 }
-const shop = createShop({ sfx, bgOnly, wallet: walletApi, bandaids: bandaidApi, onLeave: leaveShop });
+const shop = createShop({
+  sfx, bgOnly, wallet: walletApi, bandaids: bandaidApi, onLeave: leaveShop,
+  mainScene: scene, player, LANES, get speed() { return speed; },
+  canHeckle: () => state === 'run' && player.alive && !boss.quiet(),
+  // somewhere she can drop spikes: on a roof, not near a gap's edge, and clear of other obstacles
+  freeAt: (z) => blocks.some((b) => z < b.z0 - 2 && z > b.z1 + 2.5) && !obstacles.some((o) => !o.dead && o.box.z0 - 2.6 < z && o.box.z1 + 2.6 > z),
+  addSpikes: (lane, z) => addObstacle('spikes', lane, z),
+});
 
 // =================================================================== input
 const act = { left() { if (tut.waiting) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
@@ -545,8 +553,9 @@ function updateWorld(dt) {
   if (p.alive) for (const o of obstacles) {
     if (o.dead || Math.abs(o.box.z0 - p.z) > 3) continue;
     if (hits(o.box, p.x, p.y, p.z, h)) {
+      if (o.kind === 'spikes') shop.heckleHit();
       if (p.shield > 0) { setBandaids(p.shield - 1); o.dead = true; sparkle(o.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); world.remove(o.mesh); sfx.shield(); flash = 0.3; }
-      else die('hit');
+      else { if (o.kind === 'spikes') lastHurt = 'Pricked by pink spikes!'; die('hit'); }
     }
   }
   // moths
@@ -568,12 +577,15 @@ function updateWorld(dt) {
   }
   for (const sg of signs) {
     shop.animSign(sg.s, runT);
+    if (!sg.used && p.alive && state === 'run' && p.z < sg.z - 1.5) { sg.used = true; if (!boss.quiet()) shop.heckle(); }      // ran right past her shop!
     if (!sg.used && p.alive && state === 'run' && p.lane === sg.lane && Math.abs(p.x - LANES[sg.lane]) < 0.6 && p.z < sg.z + 0.3 && p.z > sg.z - 1.5) { sg.used = true; enterShop(); }
   }
   signs = signs.filter((sg) => (sg.z > p.z + 25 ? (world.remove(sg.s), false) : true));
   for (const o of obstacles) if (o.kind === 'laundry') o.mesh.children.forEach((c) => { if (c.userData.sway !== undefined) c.rotation.x = Math.sin(runT * 3 + c.userData.sway) * 0.12; });
   // recycle behind, generate ahead
   if (state === 'run') boss.update(dt);
+  shop.updateHeckle(dt, camera);
+  for (const o of obstacles) if (o.kind === 'spikes' && o.mesh.userData.rise < 1) { const u = o.mesh.userData; u.rise = Math.min(1, u.rise + dt * 5); o.mesh.scale.y = 0.01 + u.rise * (1 + Math.sin(u.rise * Math.PI) * 0.4); }
   while (genZ > p.z - 150) generateBlock(speed || 10);
   const behind = p.z + 25;
   blocks = blocks.filter((b) => (b.z1 > behind ? (world.remove(b.mesh), false) : true));
@@ -665,15 +677,16 @@ frame();
 
 window.moths = {
   get boss() { return boss.state; },
+  heckle() { shop.heckle(); }, get heckling() { return shop.heckling; }, get spikes() { return obstacles.filter((o) => o.kind === 'spikes').map((o) => ({ lane: o.lane, dz: +(player.z - o.box.z0).toFixed(1) })); },
   set shopOff(v) { shopOn = !v; },
   get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },
   set wallet(n) { wallet = walletShown = n; saveWallet(); showWallet(); },
   get shop() { return { open: shop.open_, busy: shop.busy, signs: signs.map((sg) => ({ lane: sg.lane, dz: +(player.z - sg.z).toFixed(1), used: sg.used })), nextAt: nextShopAt }; },
   shopBuy() { shop.buy(); }, shopLeave() { shop.leave(); },
-  signAhead(dz = 14) {   // put a shop sign right ahead in the current lane (for testing)
+  signAhead(dz = 14, lane = player.lane) {   // put a shop sign right ahead in the current lane (for testing)
     const z = player.z - dz;
     for (const o of [...obstacles]) if (Math.abs(o.box.z0 - z) < 6) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
-    addSign(player.lane, z);
+    addSign(lane, z);
   },
   crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); },
   get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
@@ -709,6 +722,6 @@ window.moths = {
     const free = [0, 1, 2].filter((l) => !laneBlocked(l)).sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane));
     if (free.length && Math.abs(free[0] - p.lane) === 1) { free[0] < p.lane ? act.left() : act.right(); return; }
     if (free.length && Math.abs(free[0] - p.lane) === 2) { act.left === undefined; free[0] < p.lane ? act.left() : act.right(); return; }
-    if (near.kind === 'crate' && d < speed * 0.2) act.jump();
+    if ((near.kind === 'crate' || near.kind === 'spikes') && d < speed * 0.2) act.jump();
   },
 };
