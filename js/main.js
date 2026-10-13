@@ -1,11 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=22';
-import { InkPass } from './post.js?v=22';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=22';
-import { createBosses } from './boss.js?v=22';
-import { createShop } from './shop.js?v=22';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=23';
+import { InkPass } from './post.js?v=23';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=23';
+import { createBosses } from './boss.js?v=23';
+import { createShop } from './shop.js?v=23';
+import { createBrief } from './brief.js?v=23';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -297,8 +298,8 @@ function play(name, fade = 0.15) {
 
 // =================================================================== game state
 let state = 'title';      // title | run | shop | dead
-let speed = 0, dist = 0, mothsGot = 0, score = 0, combo = 0, comboT = 0, runT = 0, best = 0, shake = 0, deadT = 0, flash = 0;
-try { best = +localStorage.getItem('paperMoths.best') || 0; } catch (_) { /* ignore */ }
+let rampT = 0, speed = 0, dist = 0, mothsGot = 0, score = 0, combo = 0, comboT = 0, runT = 0, best = 0, shake = 0, deadT = 0, flash = 0;
+try { best = +localStorage.getItem('paperMoths.bestBosses') || 0; } catch (_) { /* ignore */ }
 $('best').textContent = best;
 let shopOn = true, nextShopAt = 240;
 
@@ -419,7 +420,7 @@ function resetRun() {
   clearWorld();
   player.lane = 1; player.x = 0; player.y = 0; player.vy = 0; player.z = 0; player.grounded = true; player.slideT = 0;
   player.alive = true; player.falling = false; setBandaids(0); setScissors(0); player.magnet = 0;
-  nextShopAt = 240; speed = 0; dist = 0; mothsGot = 0; mothPoints = 0; score = 0; combo = 0; comboT = 0; runT = 0; deadT = 0;
+  nextShopAt = 240; rampT = 0; brief.hide(); speed = 0; dist = 0; mothsGot = 0; mothPoints = 0; score = 0; combo = 0; comboT = 0; runT = 0; deadT = 0;
   genZ = 6;
   // a starting runway (longer on the first run, with the tutorial crates and laundry on it)
   tut.on = !tut.done; tut.waiting = null; tut.jumped = false; tut.slid = false; tut.target = 1; tut.scale = 1; hideTut();
@@ -447,18 +448,22 @@ function die(kind) {
   if (!player.alive) return;
   player.alive = false; state = 'dead'; deadT = 0; setBossMusic(false);
   if (kind === 'fall') { sfx.fall(); play('Leap'); } else { sfx.hit(); play('Hit', 0.08); shake = 0.5; flash = 0.45; }
-  score = Math.floor(dist) + mothPoints;
-  const isBest = score > best;
-  if (isBest) { best = score; try { localStorage.setItem('paperMoths.best', best); } catch (_) { /* ignore */ } }
+  brief.hide();
+  const beaten = boss.beaten;
+  const isBest = beaten > best;
+  if (isBest) { best = beaten; try { localStorage.setItem('paperMoths.bestBosses', best); } catch (_) { /* ignore */ } }
   setTimeout(() => {
-    $('oScore').textContent = score; $('oDist').textContent = `${Math.floor(dist)} m`; $('oMoths').textContent = mothsGot; $('oBest').textContent = best;
-    $('oTitle').textContent = isBest ? 'A new best!' : kind === 'fall' ? 'Missed the jump…' : lastHurt || 'Bonk!';
+    $('oBosses').textContent = beaten; $('oDist').textContent = `${Math.floor(dist)} m`; $('oMoths').textContent = mothsGot; $('oBest').textContent = best;
+    $('oTitle').textContent = isBest ? 'A new record!' : kind === 'fall' ? 'Missed the jump…' : lastHurt || 'Bonk!';
     lastHurt = '';
     $('over').classList.remove('hidden'); $('best').textContent = best;
   }, 1300);
 }
 let mothPoints = 0;
+const brief = createBrief({ sfx });
+let noBrief = false;
 const boss = createBosses({
+  brief: (kind, cb) => { if (noBrief) cb(); else brief.show(kind, cb); },
   scene, world, player, LANES, bgOnly, sfx, sparkle, addMoth, bossMusic: setBossMusic,
   get speed() { return speed; }, get dist() { return dist; }, get t() { return elapsed; },
   addPoints(n) { mothPoints += n; },
@@ -505,13 +510,14 @@ const shop = createShop({
 });
 
 // =================================================================== input
-const act = { left() { if (tut.waiting) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
-  jump() { if (tut.waiting === 'slide') return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
-  slide() { if (tut.waiting === 'jump') return; boss.noteAction(); if (tut.waiting === 'slide') { tut.slid = true; tutResolve(); } if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
+const act = { left() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
+  jump() { if (tut.waiting === 'slide' || brief.on) return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
+  slide() { if (tut.waiting === 'jump' || brief.on) return; boss.noteAction(); if (tut.waiting === 'slide') { tut.slid = true; tutResolve(); } if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (state === 'title' || (state === 'dead' && deadT > 1.3)) { if (k === ' ' || k === 'enter') { e.preventDefault(); startRun(); } return; }
   if (state !== 'run') return;
+  if (brief.on) { if (k === ' ' || k === 'enter') { e.preventDefault(); if (!e.repeat) brief.press(); } return; }
   if (k === 'arrowleft' || k === 'a') act.left();
   else if (k === 'arrowright' || k === 'd') act.right();
   else if (k === 'arrowup' || k === 'w' || k === ' ') { e.preventDefault(); act.jump(); }
@@ -536,8 +542,8 @@ function onBlockAt(z) { return blocks.some((b) => z <= b.z0 && z >= b.z1); }
 function updatePlayer(dt) {
   const p = player;
   if (state === 'run') {
-    runT += dt;
-    speed = Math.min(21, 12 + runT * 0.09);
+    runT += dt; if (!brief.on) rampT += dt;
+    speed = Math.min(21, 12 + rampT * 0.09);
     p.z -= speed * dt; dist += speed * dt;
   } else if (state === 'dead') {
     speed = Math.max(0, speed - 30 * dt); p.z -= speed * dt;
@@ -653,11 +659,8 @@ function updateCamera(dt, t) {
   sun.position.set(p.x - 6, 10, p.z - 8); sun.target.position.set(p.x, 0, p.z);
 }
 function updateHUD() {
-  const sc = Math.floor(dist) + mothPoints;
-  $('score').textContent = sc; $('dist').textContent = `${Math.floor(dist)} m`;
+  $('bossN').textContent = boss.beaten;
   document.body.classList.toggle('bossing', !$('legend').classList.contains('hidden'));
-  const mult = Math.min(1 + Math.floor(combo / 5), 5);
-  const c = $('combo'); c.textContent = combo > 1 ? `${combo} combo · ×${mult}` : ''; c.classList.toggle('on', combo > 1);
 }
 
 // =================================================================== loop + boot
@@ -700,7 +703,7 @@ new GLTFLoader().load('assets/amara.glb', (gltf) => {
 frame();
 
 window.moths = {
-  get boss() { return boss.state; },
+  get boss() { return boss.state; }, set noBrief(v) { noBrief = v; }, get briefing() { return brief.on; }, briefPress() { brief.press(); },
   heckle(side) { shop.heckle(side); }, set debugCam(v) { debugCam = v; }, get heckling() { return shop.heckling; }, get bolts() { return shop.hazards().map((h) => ({ lane: h.lane, phase: h.phase, dz: +(player.z - h.z).toFixed(1) })); },
   set shopOff(v) { shopOn = !v; },
   get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },

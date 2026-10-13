@@ -18,16 +18,15 @@ Amara chases glowing paper moths across a sepia town at dusk. Leap the gaps betw
 
 - Your first run starts with a quick tutorial: time slows right before a row of crates and a laundry line, and waits until you press jump or slide.
 
-- **Moths** are worth 10 points, and catching them in quick succession raises your multiplier, up to ×5. Golden moths are worth 50.
 - Every moth you catch flutters into your **moth purse** in the bottom-right corner. Golden moths count as 5. The purse is saved between runs.
 - 🩹 A **bandaid** absorbs one bump. You can carry up to 3.
 - 🎀 A **ribbon** whisks nearby moths straight into your purse for a few seconds.
 - 🛍️ Every so often a pink **SHOP** sign stands over one lane. Run through its curtain to visit a little shop where a pink Amara sells 🩹 bandaids for 3000 moths and ✂️ paper scissors for 5000. The scissors snip away the next obstacle coming at you in your lane. You can carry up to 3 of each. Press 1 or 2 to buy, and Esc or Space to head back to the roof. Skip the shop and she takes it personally: she lounges smugly in the air over the rooftops for about 20 seconds, teasing you and calling grey-white lightning down onto the roof ahead. A crackling ring marks where each bolt will land, and the scorched spot it leaves still hurts for a moment, so switch lanes. There's always a lane that's safe.
-- Things get faster the longer you run. Your best score is saved in your browser.
+- Things get faster the longer you run. The top-left corner counts the bosses you've defeated this run, and your record for most bosses is saved in your browser.
 
 ## Bosses
 
-Every few hundred metres a boss swoops in over the rooftops. You get a free bandaid at the start of each fight.
+Every few hundred metres a boss swoops in over the rooftops. The first time you meet each boss in a run, Amara keeps running on empty rooftops while a guide shows how to beat it, with pictures of each attack. Press Space twice (or tap the button twice) when you're ready to fight. You get a free bandaid at the start of each fight.
 
 - **The Twin Lanterns**: a blue Amara and an orange Amara, flying ahead of you in each other's arms. They send waves rolling back down the roofs at you.
   - 🔵 **Blue wave:** keep running and don't touch anything. Jumping, sliding or changing lanes as it passes hurts you.

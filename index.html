@@ -109,6 +109,39 @@
     #leaveBtn { margin-top: 12px; width: 100%; }
     .shopPanel .hint { text-align: center; }
     @media (max-width: 600px) { #shopSay { top: 12%; font-size: 15px; } .shopPanel { left: 50%; transform: translateX(-50%); bottom: 70px; } .shopPanel .hint { display: none; } }
+    /* top-left: bosses defeated */
+    .bossCount { text-align: center; min-width: 104px; }
+    .bcLabel { font-size: 12px; font-weight: 700; opacity: .75; letter-spacing: .02em; }
+    .bossCount .score { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
+    .bcIcon { font-size: 20px; }
+    /* boss guide */
+    .brief { position: fixed; inset: 0; display: grid; place-items: center; padding: 14px; pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 7; }
+    .brief.on { opacity: 1; pointer-events: auto; background: radial-gradient(rgba(58,42,38,.15), rgba(58,42,38,.5)); }
+    .brief .bCard { width: min(980px, 100%); max-height: calc(100vh - 28px); overflow-y: auto; padding: 18px 22px 16px; transform: translateY(14px) scale(.97); transition: transform .3s; }
+    .brief.on .bCard { transform: none; }
+    .bHead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .bTag { font-size: 13px; font-weight: 700; color: var(--paper); background: var(--umber); border-radius: 8px; padding: 2px 9px; }
+    .bName { font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: clamp(26px, 4vw, 36px); margin: 0; }
+    .brief.twins .bName { color: #3a63b8; } .brief.wrath .bName { color: #b52a2a; } .brief.duet .bName { color: #7a3fc0; }
+    .bBlurb { margin: 4px 0 12px; font-size: 15px; opacity: .85; }
+    .bSteps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .bStep { margin: 0; background: rgba(255,255,255,.35); border: 2px solid var(--ink); border-radius: 12px 14px 10px 16px; overflow: hidden; }
+    .bPic { position: relative; aspect-ratio: 16 / 10; background: #b9a495; }
+    .bPic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .bNum { position: absolute; left: 8px; top: 8px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); font-weight: 800; font-family: 'Shippori Mincho B1', serif; }
+    .bStep figcaption { padding: 8px 11px 10px; }
+    .bStep h3 { margin: 0 0 4px; font-family: 'Shippori Mincho B1', serif; font-size: 17px; }
+    .bStep p { margin: 0; font-size: 13.5px; line-height: 1.45; }
+    .brief b.b { color: #3a63b8; } .brief b.o { color: #c4651a; } .brief b.p { color: #7a3fc0; } .brief b.r { color: #b52a2a; } .brief b.y { color: #b88400; }
+    .bFoot { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
+    .bWin { font-size: 15px; flex: 1 1 280px; }
+    .bGo { display: flex; align-items: center; gap: 10px; font-size: 16px; padding: 10px 18px; }
+    .bGo kbd { font-size: 15px; padding: 2px 10px; color: var(--ink); animation: keypress .9s infinite; box-shadow: 0 3px 0 var(--ink); }
+    .bGo.armed { background: #a2322f; animation: bump .5s infinite; }
+    .bDots { display: inline-flex; gap: 5px; } .bDots i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--paper); }
+    .bDots i.on { background: var(--paper); }
+    body.briefing #wallet, body.briefing #heckle { visibility: hidden; }
+    @media (max-width: 600px) { .brief .bCard { padding: 14px; } .bStep p { font-size: 13px; } .bGo kbd { display: none; } }
     .credit { position: fixed; left: 12px; bottom: 8px; font-size: 12px; color: var(--paper); text-shadow: 0 1px 2px var(--ink); opacity: .85; }
     .credit a { color: inherit; }
     @media (max-width: 600px) { .score { font-size: 26px; } #title { place-items: end center; } .keys .desk { display: none; } }
@@ -119,16 +152,15 @@
   <div id="stage"></div>
 
   <div id="hud" class="hidden">
-    <div class="paper">
-      <div class="score" id="score">0</div>
-      <div class="sub"><span id="dist">0 m</span></div>
+    <div class="paper bossCount" title="bosses defeated this run">
+      <div class="bcLabel">bosses defeated</div>
+      <div class="score"><span class="bcIcon">⚔️</span><span id="bossN">0</span></div>
     </div>
     <div>
-      <div class="paper sub">best <b id="best">0</b><button id="muteBtn" title="Music">♪</button></div>
+      <div class="paper sub">most bosses <b id="best">0</b><button id="muteBtn" title="Music">♪</button></div>
       <div class="powers"><span id="pShield" class="paper pw hidden">🩹 bandaid<b id="pShieldN"></b></span><span id="pSnip" class="paper pw hidden">✂️ scissors<b id="pSnipN"></b></span><span id="pMagnet" class="paper pw hidden">🎀 ribbon magnet</span></div>
     </div>
   </div>
-  <div id="combo"></div>
 
   <div id="title" class="modal">
     <div class="paper">
@@ -137,7 +169,7 @@
       <div class="keys">
         <span class="desk"><kbd>←</kbd><kbd>→</kbd> change lanes · <kbd>↑</kbd>/<kbd>Space</kbd> leap · <kbd>↓</kbd> slide<br /></span>
         <span class="touch">swipe ← → to change lanes · swipe ↑ to leap · swipe ↓ to slide<br /></span>
-        Catch the glowing moths in a row for combos. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandaids and 🎀 ribbons. Run through a pink <b>SHOP</b> sign to spend your moths at the shop. Every few hundred metres, a boss swoops in…
+        Catch the glowing moths and save them up for the shop. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandaids and 🎀 ribbons. Run through a pink <b>SHOP</b> sign to spend your moths at the shop. Every few hundred metres, a boss swoops in. How many can you defeat?
       </div>
       <button id="playBtn" disabled>Loading…</button>
     </div>
@@ -147,10 +179,10 @@
     <div class="paper">
       <h1 id="oTitle">Bonk!</h1>
       <div class="stats">
-        <span>Score</span><b id="oScore">0</b>
+        <span>Bosses defeated</span><b id="oBosses">0</b>
         <span>Distance</span><b id="oDist">0 m</b>
         <span>Moths caught</span><b id="oMoths">0</b>
-        <span>Best</span><b id="oBest">0</b>
+        <span>Most bosses</span><b id="oBest">0</b>
       </div>
       <button id="againBtn">Run again</button>
       <div class="hint">or press <kbd>Space</kbd></div>
@@ -174,6 +206,12 @@
     </div>
   </div>
   <div id="heckle" class="paper"></div>
+  <div id="brief" class="brief"><div class="bCard paper">
+    <div class="bHead"><span class="bTag">Boss incoming</span><h2 class="bName"></h2></div>
+    <p class="bBlurb"></p>
+    <div class="bSteps"></div>
+    <div class="bFoot"><div class="bWin"></div><button class="bGo"><span>Press</span><kbd>Space</kbd><span class="bGoText">twice to start the fight</span><span class="bDots"><i></i><i></i></span></button></div>
+  </div></div>
   <div id="fade"></div>
 
   <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
@@ -184,6 +222,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=22"></script>
+  <script type="module" src="js/main.js?v=23"></script>
 </body>
 </html>

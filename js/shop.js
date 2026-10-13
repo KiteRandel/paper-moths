@@ -1,7 +1,7 @@
 // The shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=22';
+import { PAL, T, toon } from './art.js?v=23';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const PINK = '#ff7fb6', PINK_SOFT = '#ffc2dc', PINK_DEEP = '#c94f86';
