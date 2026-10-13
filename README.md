@@ -29,9 +29,9 @@ Every few hundred metres a boss swoops in over the rooftops. You get a free band
   - 🔵 **Blue wave:** keep running and don't touch anything. Jumping, sliding or changing lanes as it passes hurts you.
   - 🟠 **Orange wave:** slide under it.
   - After each round of waves they drop a golden paper lantern into one lane. Catch it and Amara flings it back at them. Three hits and they drift apart.
-- **Wrath & Joy**: furious red Wrath smashes the roof while giddy yellow Joy bounces around her, giggling.
+- **Wrath & Joy**: furious red Wrath (steaming, trembling, growling, and angrier with every hit) smashes the roof while giddy yellow Joy dances around her, giggling, flitting between twirls, cheers, claps and dances.
   - Cracks flash across the roof before each slam. 🔴 **Red crack:** Wrath smashes a hole there, so stay out of that lane or jump it. 🟡 **Gold crack:** Joy cannonballs down and plants a golden sunflower spring.
-  - **Bounce on Joy's spring** to launch high into the air straight at Wrath. She tries to dodge into another lane, so steer in mid-air and smack into her. The angrier she gets, the more red cracks per row. Three hits and Wrath runs out of fury, and Joy hugs her as they float away.
+  - **Bounce on Joy's spring** to launch high into the air straight at Wrath. She tries to dodge into another lane, so steer in mid-air and smack into her. Watch out: when a gold crack **flickers red**, Wrath is about to stomp that spring flat into a hole, and she does it more often the angrier she gets. The angrier she gets, the more red cracks per row. Three hits and Wrath runs out of fury, and Joy hugs her as they float away.
 - **Lilac & Glitch**: composed purple Lilac sings while twitchy green Glitch strains at the leash in her hand.
   - Each note of Lilac's song points to a lane: 🎵 low = left, middle = centre, high = right. A glowing note floats over each lane as she sings.
   - Then Glitch replays the song as strikes, tearing down those lanes in the same order and rhythm. Be out of the lane on the beat!

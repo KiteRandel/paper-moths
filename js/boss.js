@@ -1,7 +1,7 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=7';
+import { PAL, T, toon } from './art.js?v=8';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -108,6 +108,7 @@ export function createBosses(ctx) {
     for (const w of waves) world.remove(w.mesh); waves.length = 0;
     for (const h of holes) world.remove(h.mesh); holes.length = 0;
     for (const sp of springs) world.remove(sp.mesh); springs.length = 0;
+    for (const s2 of steam) scene.remove(s2.sp); steam.length = 0;
     for (const c of cracks) world.remove(c.mesh); cracks.length = 0;
     for (const s of shots) scene.remove(s.mesh); shots.length = 0;
     if (lantern) world.remove(lantern.mesh); lantern = null; timers = [];
@@ -135,7 +136,7 @@ export function createBosses(ctx) {
       ui.name.textContent = 'Lilac & Glitch';
     } else {
       st.boss = B.wrath; B.wrath.g.visible = true; B.joy.g.visible = true; B.wrath.g.rotation.set(0, 0, 0); B.joy.g.rotation.set(0, 0, 0);
-      st.z = p.z - 60; st.y = 3.2; st.x = 0; anim(B.wrath, 'Fly'); anim(B.joy, 'Dance');
+      st.z = p.z - 60; st.y = 3.2; st.x = 0; anim(B.wrath, 'Rage'); anim(B.joy, 'Dance'); B.joy.dance = 'Dance'; B.joy.danceT = 3; st.lastBroken = false;
       B.joy.g.position.set(1.7, 2.8, st.z + 0.6); st.air = null; st.slam = null; st.rowsNoSpring = 1;
       banner('Wrath & Joy', 'avoid the red cracks · bounce on Joy\u2019s golden springs!', 3.4);
       ui.name.textContent = 'Wrath & Joy';
@@ -147,7 +148,7 @@ export function createBosses(ctx) {
   }
   const LEGEND = {
     twins: '<span><b class="b">● blue wave</b> keep running, don\u2019t move</span><span><b class="o">● orange wave</b> slide!</span>',
-    wrath: '<span><b class="r">● red crack</b> a hole, stay away</span><span><b class="y">● gold crack</b> Joy\u2019s spring: bounce up and smack Wrath!</span>',
+    wrath: '<span><b class="r">● red crack</b> a hole, stay away</span><span><b class="y">● gold crack</b> Joy\u2019s spring: bounce up and smack Wrath!</span><span><b class="r">gold flickering red</b> Wrath will smash it</span>',
     duet: '<span><b class="p">♪ low</b> left · <b class="p">♪ mid</b> centre · <b class="p">♪ high</b> right</span><span>then <b class="p">sing it back</b>!</span>',
   };
   function defeated() {
@@ -173,7 +174,7 @@ export function createBosses(ctx) {
     ctx.sparkle(pos, st.kind === 'twins' ? PAL.glow : RED, 22);
     if (st.kind === 'twins') { for (const b of [B.twins.blue, B.twins.orange]) anim(b, 'Hit', { once: true, after: 'Hug', fade: 0.1 }); }
     else if (st.kind === 'duet') { anim(B.duet.lilac, 'Hit', { once: true, after: 'Sing', fade: 0.1 }); B.duet.crack++; }
-    else { anim(B.wrath, 'Hit', { once: true, after: 'Fly', fade: 0.1 }); sfx.giggle(); B.joy.spin = 1; }
+    else { anim(B.wrath, 'Hit', { once: true, after: 'Rage', fade: 0.1 }); sfx.giggle(); B.joy.spin = 1; setTimeout(() => sfx.growl(), 500); }
     if (st.hp <= 0) after(0.5, defeated);
   }
 
@@ -243,16 +244,24 @@ export function createBosses(ctx) {
     const row = [];
     for (let i = 0; i < reds; i++) row.push({ lane: lanes[i], kind: 'red' });
     if (gold) row.push({ lane: lanes[reds], kind: 'gold' });
-    st.rowsNoSpring = gold ? 0 : st.rowsNoSpring + 1;
+    // the angrier Wrath gets, the more often she smashes Joy's spring (never twice in a row)
+    const breakSpring = gold && !st.lastBroken && Math.random() < [0.25, 0.4, 0.55, 0.6][Math.min(3, Math.floor(r))];
+    st.lastBroken = breakSpring;
+    st.rowsNoSpring = gold && !breakSpring ? 0 : st.rowsNoSpring + 1;
     for (const c of row) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.7), new THREE.MeshBasicMaterial({ map: c.kind === 'red' ? crackTex : goldCrackTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
       m.rotation.x = -Math.PI / 2; m.position.set(LANES[c.lane], 0.03, z); bgOnly(m); world.add(m);
       c.crack = { mesh: m, born: st.t, tele }; cracks.push(c.crack);
+      if (c.kind === 'gold' && breakSpring) {   // a red flicker over the gold: Wrath has her eye on this one
+        const warn = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), new THREE.MeshBasicMaterial({ map: crackTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        warn.rotation.x = -Math.PI / 2; warn.position.set(LANES[c.lane], 0.04, z); bgOnly(warn); world.add(warn);
+        c.warn = { mesh: warn, born: st.t, tele, flicker: true }; cracks.push(c.warn);
+      }
     }
     sfx.crackWarn(); if (gold) sfx.giggle();
     const reds_ = row.filter((c) => c.kind === 'red');
-    st.slam = { row, z, phase: 'aim', tele, wrathLane: reds_[Math.floor(reds_.length / 2)].lane, joyLane: gold ? row.find((c) => c.kind === 'gold').lane : null };
-    after(tele - 0.45, () => { if (st.mode === 'fight' && st.slam) { st.slam.phase = 'wind'; anim(B.wrath, 'Slam', { once: true }); if (st.slam.joyLane !== null) anim(B.joy, 'Jump', { once: true, after: 'Dance' }); } });
+    st.slam = { row, z, phase: 'aim', tele, breakSpring, wrathLane: reds_[Math.floor(reds_.length / 2)].lane, joyLane: gold ? row.find((c) => c.kind === 'gold').lane : null };
+    after(tele - 0.45, () => { if (st.mode === 'fight' && st.slam) { st.slam.phase = 'wind'; anim(B.wrath, 'Slam', { once: true }); if (st.slam.joyLane !== null) { B.joy.busy = true; anim(B.joy, 'Jump', { once: true, after: B.joy.dance || 'Dance' }); } } });
     after(tele, () => { if (st.mode === 'fight' && st.slam) impact(); });
   }
   function impact() {
@@ -261,11 +270,28 @@ export function createBosses(ctx) {
     for (const c of s.row) {
       world.remove(c.crack.mesh); cracks.splice(cracks.indexOf(c.crack), 1);
       if (c.kind === 'red') { makeHole(c.lane, s.z); ctx.sparkle(new THREE.Vector3(LANES[c.lane], 0.3, s.z), PAL.dusk, 14); }
-      else { makeSpring(c.lane, s.z); ctx.sparkle(new THREE.Vector3(LANES[c.lane], 0.5, s.z), GOLD, 16); sfx.springPlant(); }
+      else { if (c.warn) { world.remove(c.warn.mesh); cracks.splice(cracks.indexOf(c.warn), 1); } c.spring = makeSpring(c.lane, s.z); ctx.sparkle(new THREE.Vector3(LANES[c.lane], 0.5, s.z), GOLD, 16); sfx.springPlant(); }
     }
     s.phase = 'rise';
-    after(0.35, () => { if (st.mode === 'fight') anim(B.wrath, 'Fly'); });
-    after(0.9, () => { if (st.slam === s) st.slam = null; if (st.mode === 'fight' && !st.air) { st.round = Math.min(st.round + 0.25, 3); wrathNext(0.7); } });
+    after(0.3, () => { B.joy.busy = false; });
+    if (s.breakSpring) {
+      // Wrath wheels around and stomps Joy's spring flat
+      const g = s.row.find((c) => c.kind === 'gold');
+      after(0.2, () => { if (st.slam !== s || st.mode !== 'fight') return; s.wrathLane = g.lane; s.phase = 'bwind'; anim(B.wrath, 'Slam', { once: true }); sfx.growl(); });
+      after(0.55, () => {
+        if (st.slam !== s || st.mode !== 'fight') return;
+        s.phase = 'bimpact'; ctx.fx(0.2, 0.55); sfx.slam(); sfx.sad();
+        const sp = g.spring; if (sp && !sp.used) { world.remove(sp.mesh); springs.splice(springs.indexOf(sp), 1); }
+        makeHole(g.lane, s.z); ctx.sparkle(new THREE.Vector3(LANES[g.lane], 0.6, s.z), GOLD, 14); ctx.sparkle(new THREE.Vector3(LANES[g.lane], 0.6, s.z), RED, 14);
+        B.joy.busy = true; anim(B.joy, 'Hit', { once: true, after: B.joy.dance || 'Dance', fade: 0.1 }); after(1.0, () => { B.joy.busy = false; });
+        banner('Wrath smashed Joy\u2019s spring!', '', 1.1);
+        s.phase = 'rise'; after(0.35, () => { if (st.mode === 'fight') anim(B.wrath, 'Rage'); });
+        after(0.8, () => { if (st.slam === s) st.slam = null; if (st.mode === 'fight' && !st.air) { st.round = Math.min(st.round + 0.25, 3); wrathNext(0.6); } });
+      });
+    } else {
+      after(0.35, () => { if (st.mode === 'fight') anim(B.wrath, 'Rage'); });
+      after(0.9, () => { if (st.slam === s) st.slam = null; if (st.mode === 'fight' && !st.air) { st.round = Math.min(st.round + 0.25, 3); wrathNext(0.7); } });
+    }
   }
   function makeSpring(lane, z) {
     const g = new THREE.Group(); g.position.set(LANES[lane], 0, z);
@@ -276,7 +302,7 @@ export function createBosses(ctx) {
     const centre = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 18), toon({ color: '#7a4a1a' })); pad.add(centre);
     for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const pet = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), gold); pet.scale.set(1, 0.3, 0.55); pet.position.set(Math.cos(a) * 0.42, 0, Math.sin(a) * 0.42); pet.rotation.y = -a; pad.add(pet); }
     const glow = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffd84a', transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); glow.scale.set(2.8, 2.8, 1); glow.position.y = 0.7; g.add(glow);
-    world.add(g); springs.push({ lane, z, mesh: g, pad, used: false });
+    world.add(g); const sp = { lane, z, mesh: g, pad, used: false }; springs.push(sp); return sp;
   }
   function launch(sp) {
     const p = player;
@@ -321,13 +347,13 @@ export function createBosses(ctx) {
       if (st.kind === 'wrath' && st.air) { wantZ = st.air.z; wantY = 2.3; wantX = LANES[st.air.lane]; k = 6; kx = 3.2; }
       else if (st.kind === 'wrath' && st.slam) {
         const s = st.slam; wantX = LANES[s.wrathLane];
-        if (s.phase === 'wind') { wantY = 3.4; wantZ = lerpZ(p.z - 12, s.z, 0.35); k = 5; }
-        else if (s.phase === 'impact') { wantZ = s.z; wantY = 0; k = 60; }
+        if (s.phase === 'wind' || s.phase === 'bwind') { wantY = 3.4; wantZ = lerpZ(p.z - 12, s.z, 0.35); k = s.phase === 'bwind' ? 9 : 5; kx = s.phase === 'bwind' ? 14 : null; }
+        else if (s.phase === 'impact' || s.phase === 'bimpact') { wantZ = s.z; wantY = 0; k = 60; }
         else if (s.phase === 'rise') { wantY = 2.6; k = 4; }
       }
       if (st.mode === 'outro') { st.outroT += dt; wantZ = st.z - 6 * dt; wantY = st.y + 4 * dt; k = 60; }
       st.z += (wantZ - st.z) * Math.min(1, dt * k); st.y += (wantY - st.y) * Math.min(1, dt * k); st.x += (wantX - st.x) * Math.min(1, dt * (kx ?? k * 0.8));
-      if (st.kind === 'wrath' && st.slam && st.slam.phase === 'impact') { st.z = st.slam.z; st.y = 0; st.x = LANES[st.slam.wrathLane]; }
+      if (st.kind === 'wrath' && st.slam && (st.slam.phase === 'impact' || st.slam.phase === 'bimpact')) { st.z = st.slam.z; st.y = 0; st.x = LANES[st.slam.wrathLane]; }
       b.g.position.set(st.x, st.y + (st.mode === 'fight' ? Math.sin(t * 2) * 0.15 : 0), st.z);
       if (st.mode === 'outro') { if (st.kind !== 'wrath') b.g.rotation.z += dt * 3; b.g.scale.multiplyScalar(1 - dt * 0.35); if (st.outroT > 2.2) { b.g.visible = false; b.g.rotation.z = 0; b.g.scale.setScalar(st.kind === 'wrath' ? 1.7 : 1.6); if (st.kind === 'wrath') { B.joy.g.visible = false; B.joy.g.scale.setScalar(1.45); } if (st.kind === 'duet') { B.duet.glitch.g.visible = false; B.duet.glitch.g.scale.setScalar(1.45); B.duet.glitch.g.rotation.z = 0; } st.mode = 'none'; st.boss = null; st.nextAt = ctx.dist + 650; } }
       // mixers + auras
@@ -376,7 +402,7 @@ export function createBosses(ctx) {
     }
 
     if (st.mode === 'fight' && st.kind === 'wrath') {
-      for (const c of cracks) { c.mesh.material.opacity = 0.55 + Math.sin((st.t - c.born) * 18) * 0.45; c.mesh.scale.setScalar(0.8 + Math.min(1, (st.t - c.born) / c.tele) * 0.5); }
+      for (const c of cracks) { c.mesh.material.opacity = c.flicker ? (Math.sin((st.t - c.born) * 26) > 0 ? 1 : 0.1) : 0.55 + Math.sin((st.t - c.born) * 18) * 0.45; c.mesh.scale.setScalar(0.8 + Math.min(1, (st.t - c.born) / c.tele) * 0.5); }
       for (const sp of springs) {
         sp.pad.position.y = 0.72 + (sp.used ? Math.max(0, 0.5 - (st.t - (sp.usedT || 0))) : Math.abs(Math.sin(t * 5)) * 0.06);
         if (!sp.used && Math.abs(p.z - sp.z) < 0.9 && Math.abs(p.x - LANES[sp.lane]) < 0.8 && p.y < 0.4) { sp.usedT = st.t; launch(sp); }
@@ -404,10 +430,52 @@ export function createBosses(ctx) {
     else { want = w.clone().add(new THREE.Vector3(st.x > 0.5 ? -1.8 : 1.8, -0.3 + Math.abs(Math.sin(t * 3.2)) * 0.7, 0.8)); }   // bouncy, never still
     j.g.position.lerp(want, Math.min(1, dt * k));
     if (st.mode !== 'outro') {
+      // Joy never does the same dance for long
+      j.danceT = (j.danceT ?? 3) - dt;
+      if (j.danceT <= 0 && !j.busy) {
+        const opts = ['Dance', 'Twirl', 'Cheer', 'Clap'].filter((d) => d !== j.dance);
+        j.dance = opts[Math.floor(Math.random() * opts.length)]; anim(j, j.dance, { fade: 0.35 });
+        j.danceT = 2.4 + Math.random() * 1.8; if (Math.random() < 0.4) sfx.giggle();
+      }
       j.spin = Math.max(0, (j.spin || 0) - dt);
-      j.g.rotation.y = j.spin > 0 ? (1 - j.spin) * Math.PI * 4 : Math.sin(t * 2.4) * 0.35;
-      B.wrath.g.rotation.y = 0;
+      if (j.spin > 0) j.g.rotation.y = (1 - j.spin) * Math.PI * 4;
+      else if (j.dance === 'Twirl' && !j.busy) j.g.rotation.y += dt * 7;
+      else j.g.rotation.y = Math.sin(t * 2.4) * 0.35;
     }
+    angerFx(dt, t);
+  }
+  // Wrath boils over: steam from her head, a throbbing aura and trembling, all worse with every hit
+  const steam = [];
+  const steamMat = new THREE.SpriteMaterial({ map: T.glow, color: '#5a1a14', transparent: true, opacity: 0.6, depthWrite: false });
+  let steamT = 0, growlT = 4;
+  function angerFx(dt, t) {
+    const w = B.wrath, anger = clamp((st.maxHp - st.hp) / 2, 0, 1);
+    w.head = w.head || w.root.getObjectByName('Head');
+    // trembling
+    const calm = st.mode === 'outro';
+    const amp = calm ? 0 : 0.03 + anger * 0.08;
+    w.root.position.set((Math.random() - 0.5) * amp, (Math.random() - 0.5) * amp * 0.5, 0);
+    // aura: deeper red, bigger and faster with anger
+    const pulse = 0.5 + 0.5 * Math.sin(t * (7 + anger * 7));
+    w.aura.material.color.set('#ff2a14'); w.aura.material.opacity = 0.55 + pulse * (0.25 + anger * 0.35) + (w.charge || 0);
+    w.aura.scale.set(3 + anger * 1.8 + pulse * 0.5, 3.6 + anger * 2 + pulse * 0.5, 1);
+    w.root.traverse((o) => { if (o.isMesh) o.material.emissiveIntensity = 0.55 + anger * 0.45 + pulse * 0.15 * anger; });
+    // steam puffs
+    steamT -= dt;
+    if (steamT <= 0 && w.head && w.g.visible && !calm) {
+      steamT = 0.22 - anger * 0.14;
+      for (const side of [-1, 1]) {
+        const sp = bgOnly(new THREE.Sprite(steamMat.clone()));
+        sp.position.copy(w.head.getWorldPosition(new THREE.Vector3())).add(new THREE.Vector3(side * 0.18, 0.25, 0));
+        sp.scale.setScalar(0.35); scene.add(sp);
+        steam.push({ sp, v: new THREE.Vector3(side * (0.4 + Math.random() * 0.4), 1.4 + Math.random(), 0), life: 0.9 });
+      }
+    }
+    for (const s2 of [...steam]) {
+      s2.life -= dt; s2.sp.position.addScaledVector(s2.v, dt); s2.sp.scale.setScalar(0.35 + (0.9 - s2.life) * 1.3); s2.sp.material.opacity = Math.max(0, s2.life) * 0.7;
+      if (s2.life <= 0) { scene.remove(s2.sp); s2.sp.material.dispose(); steam.splice(steam.indexOf(s2), 1); }
+    }
+    growlT -= dt; if (growlT <= 0 && !calm) { growlT = 5 - anger * 2.5 + Math.random() * 2; if (anger > 0) sfx.growl(); }
   }
 
   // ================================================================ Lilac & Glitch
@@ -576,7 +644,7 @@ export function createBosses(ctx) {
   return {
     init, reset, update, quiet, quietStartsAt, holeAt,
     noteAction() { lastAct = st.t; },
-    get state() { return { mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
+    get state() { return { mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
     // test hook: pretend some bosses were already beaten and the next one is due now
     skipTo(beaten) { st.beaten = beaten; st.nextAt = ctx.dist + 150; },

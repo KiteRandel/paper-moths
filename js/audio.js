@@ -90,6 +90,11 @@ export const sfx = {
   boing: () => { if (!ctx || snd.muted) return; const t = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = 'triangle';
     o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(720, t + 0.25); o.frequency.exponentialRampToValueAtTime(420, t + 0.5);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55); o.connect(g).connect(master); o.start(t); o.stop(t + 0.6); },
+  growl: () => { if (!ctx || snd.muted) return; const t = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain(); const f = ctx.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(70, t); o.frequency.linearRampToValueAtTime(95, t + 0.25); o.frequency.linearRampToValueAtTime(60, t + 0.7);
+    f.type = 'lowpass'; f.frequency.value = 420; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+    o.connect(f).connect(g).connect(master); o.start(t); o.stop(t + 0.8); noise(0.6, 250, 0.2, 0, 0.5); },
+  sad: () => [76, 74, 71, 67].forEach((m, i) => pluck(mtof(m), i * 0.12, 0.4, 0.07, master, 'sine')),
   giggle: () => [84, 88, 86, 91].forEach((m, i) => pluck(mtof(m), i * 0.07, 0.18, 0.06, master, 'sine')),
   springPlant: () => { pluck(mtof(79), 0, 0.4, 0.09, master, 'triangle'); pluck(mtof(86), 0.06, 0.5, 0.07); },
   // Lilac & Glitch
