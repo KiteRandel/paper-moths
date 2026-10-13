@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { PAL, T, makeTextures, toon, toonify } from './art.js';
 import { InkPass } from './post.js';
 import { initAudio, sfx, setMusic, tickMusic, setMuted, snd } from './audio.js';
+import { createBosses } from './boss.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -199,6 +200,7 @@ function mothLine(lane, z0, n, step = 1.6, y = 1.0) { for (let i = 0; i < n; i++
 function mothArc(lane, zc, span = 6) { for (let i = 0; i <= 6; i++) { const t = i / 6; addMoth(LANES[lane], 1.0 + Math.sin(t * Math.PI) * 1.6, zc + span / 2 - t * span); } }
 
 function generateBlock(speed) {
+  if (boss.quiet()) return quietBlock();
   const len = rand(24, 44);
   const z0 = genZ, z1 = genZ - len;
   const b = buildingBlock(len); b.position.set(0, 0, (z0 + z1) / 2); world.add(b);
@@ -251,6 +253,24 @@ function generateBlock(speed) {
   mothArc(prevFree, z1 - gap / 2, gap + 3);
 }
 
+// a long, gap-free roof with only a few moths: the arena for a boss fight
+function quietBlock() {
+  const len = 40, z0 = genZ, z1 = genZ - len;
+  boss.quietStartsAt(z0);
+  const b = buildingBlock(len); b.position.set(0, 0, (z0 + z1) / 2); world.add(b);
+  blocks.push({ z0, z1, mesh: b });
+  for (const side of [-1, 1]) {
+    let z = z0;
+    while (z > z1 - 4) {
+      const w = rand(3.5, 5.5), d = rand(4, 7), h = rand(6, 18);
+      const hs = house(w, d, h); hs.position.set(side * (W / 2 + 1.2 + w / 2 + rand(0, 3.5)), -h + rand(-3, 4.5), z - d / 2); world.add(hs);
+      decor.push(hs); z -= d + rand(0.3, 2.5);
+    }
+  }
+  if (Math.random() < 0.4) mothLine(Math.floor(Math.random() * 3), z0 - rand(8, 20), 4);
+  genZ = z1;   // no gap: the roof keeps going
+}
+
 // =================================================================== Amara
 const player = {
   root: new THREE.Group(), model: null, mixer: null, actions: {}, current: null,
@@ -278,6 +298,7 @@ try { best = +localStorage.getItem('paperMoths.best') || 0; } catch (_) { /* ign
 $('best').textContent = best;
 
 function resetRun() {
+  boss.reset();
   clearWorld();
   player.lane = 1; player.x = 0; player.y = 0; player.vy = 0; player.z = 0; player.grounded = true; player.slideT = 0;
   player.alive = true; player.falling = false; player.shield = 0; player.magnet = 0; player.shieldFx.visible = false;
@@ -306,11 +327,25 @@ function die(kind) {
   if (isBest) { best = score; try { localStorage.setItem('paperMoths.best', best); } catch (_) { /* ignore */ } }
   setTimeout(() => {
     $('oScore').textContent = score; $('oDist').textContent = `${Math.floor(dist)} m`; $('oMoths').textContent = mothsGot; $('oBest').textContent = best;
-    $('oTitle').textContent = isBest ? 'A new best!' : kind === 'fall' ? 'Missed the jump…' : 'Bonk!';
+    $('oTitle').textContent = isBest ? 'A new best!' : kind === 'fall' ? 'Missed the jump…' : lastHurt || 'Bonk!';
+    lastHurt = '';
     $('over').classList.remove('hidden'); $('best').textContent = best;
   }, 1300);
 }
 let mothPoints = 0;
+const boss = createBosses({
+  scene, world, player, LANES, bgOnly, sfx, sparkle, addMoth,
+  get speed() { return speed; }, get dist() { return dist; }, get t() { return elapsed; },
+  addPoints(n) { mothPoints += n; },
+  fx(f, sh) { flash = Math.max(flash, f); shake = Math.max(shake, sh); },
+  giveShield() { player.shield = 1; player.shieldFx.visible = true; $('pShield').classList.remove('hidden'); },
+  hurt(msg) {
+    if (!player.alive) return;
+    if (player.shield > 0) { player.shield = 0; player.shieldFx.visible = false; $('pShield').classList.add('hidden'); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
+    else { lastHurt = msg; die('hit'); }
+  },
+});
+let lastHurt = '';
 function collectMoth(mo) {
   world.remove(mo.m); moths.splice(moths.indexOf(mo), 1);
   combo = comboT > 0 ? combo + 1 : 1; comboT = 1.3;
@@ -321,9 +356,9 @@ function collectMoth(mo) {
 }
 
 // =================================================================== input
-const act = { left() { if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (player.lane < 2) { player.lane++; sfx.lane(); } },
-  jump() { if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
-  slide() { if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
+const act = { left() { boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
+  jump() { boss.noteAction(); if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
+  slide() { boss.noteAction(); if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (state === 'title' || (state === 'dead' && deadT > 1.3)) { if (k === ' ' || k === 'enter') { e.preventDefault(); startRun(); } return; }
@@ -362,7 +397,7 @@ function updatePlayer(dt) {
   const tx = LANES[p.lane]; const dx = tx - p.x; p.x += dx * Math.min(1, dt * 14);
   p.root.rotation.z = -dx * 0.12;
   // vertical
-  const support = onBlockAt(p.z);
+  const support = onBlockAt(p.z) && !boss.holeAt(p.x, p.z);
   if (!p.grounded || !support) {
     p.vy -= 26 * dt; p.y += p.vy * dt;
     if (support && p.y <= 0 && p.vy <= 0 && !p.falling) { p.y = 0; p.vy = 0; p.grounded = true; sfx.land(); if (p.slideT > 0) sfx.slide(); }
@@ -416,6 +451,7 @@ function updateWorld(dt) {
   }
   for (const o of obstacles) if (o.kind === 'laundry') o.mesh.children.forEach((c) => { if (c.userData.sway !== undefined) c.rotation.x = Math.sin(runT * 3 + c.userData.sway) * 0.12; });
   // recycle behind, generate ahead
+  if (state === 'run') boss.update(dt);
   while (genZ > p.z - 150) generateBlock(speed || 10);
   const behind = p.z + 25;
   blocks = blocks.filter((b) => (b.z1 > behind ? (world.remove(b.mesh), false) : true));
@@ -467,12 +503,13 @@ function updateHUD() {
 
 // =================================================================== loop + boot
 const clock = new THREE.Clock(); let elapsed = 0, simScale = 1, frames = 0;
+let stepHook = null;   // automated playtests can steer from inside the fixed-step loop
 function frame() {
   requestAnimationFrame(frame); frames++;
   let total = Math.min(clock.getDelta(), 0.1) * simScale;
   while (total > 1e-6) {
     const dt = Math.min(total, 1 / 60); total -= dt; elapsed += dt;
-    if (state !== 'title') { updatePlayer(dt); updateWorld(dt); if (state === 'dead') deadT += dt; }
+    if (state !== 'title') { if (state === 'run' && stepHook) stepHook(dt); updatePlayer(dt); updateWorld(dt); if (state === 'dead') deadT += dt; }
     else { player.mixer?.update(dt); for (const mo of moths) { const ud = mo.m.userData; ud.t += dt * 10; ud.l.rotation.y = Math.sin(ud.t) * 0.9; ud.r.rotation.y = -Math.sin(ud.t) * 0.9; } }
     updateFx(dt, elapsed); updateCamera(dt, elapsed);
   }
@@ -487,6 +524,7 @@ new GLTFLoader().load('assets/amara.glb', (gltf) => {
   model.rotation.y = Math.PI;                 // she runs toward -z
   model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
   player.root.add(model); player.model = model;
+  boss.init(gltf);
   player.mixer = new THREE.AnimationMixer(model);
   for (const c of gltf.animations) player.actions[c.name] = player.mixer.clipAction(c);
   resetRun();
@@ -499,6 +537,18 @@ new GLTFLoader().load('assets/amara.glb', (gltf) => {
 frame();
 
 window.moths = {
+  get boss() { return boss.state; },
+  set stepHook(fn) { stepHook = fn; },
+  // jump straight to a boss: clear what's ahead and lay a fresh runway
+  forceBoss(kind) {
+    const p = player;
+    for (const o of [...obstacles]) if (o.box.z1 < p.z + 1) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
+    for (const b of [...blocks]) if (b.z0 < p.z - 0.01) { world.remove(b.mesh); blocks.splice(blocks.indexOf(b), 1); }
+    const cur = blocks.find((b) => p.z <= b.z0 && p.z >= b.z1);
+    const top = cur ? cur.z1 : p.z + 2;
+    const run = buildingBlock(12); run.position.set(0, 0, top - 6); world.add(run); blocks.push({ z0: top, z1: top - 12, mesh: run });
+    genZ = top - 12; boss.force(kind); while (genZ > p.z - 150) generateBlock(speed || 10);
+  },
   get state() { return { state, speed: +speed.toFixed(2), dist: +dist.toFixed(1), moths: mothsGot, score: Math.floor(dist) + mothPoints, lane: player.lane, y: +player.y.toFixed(2), alive: player.alive, shield: player.shield, magnet: +player.magnet.toFixed(1), obstacles: obstacles.length, combo }; },
   act, startRun, set simScale(v) { simScale = v; }, get frames() { return frames; },
   nextObstacle() { return obstacles.filter((o) => !o.dead && o.box.z1 < player.z).sort((a, b) => b.box.z1 - a.box.z1)[0]; },

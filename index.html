@@ -46,6 +46,19 @@
     .stats b { font-family: 'Shippori Mincho B1', serif; font-size: 20px; }
     #oTitle { font-size: 34px; }
     .hint { font-size: 13px; opacity: .7; margin-top: 10px; }
+    /* boss fights */
+    #bossBar { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); padding: 6px 16px 8px; text-align: center; pointer-events: none; min-width: 210px; }
+    #bossName { font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: 17px; }
+    #bossPips { display: flex; gap: 6px; justify-content: center; margin-top: 5px; }
+    #bossPips i { width: 40px; height: 9px; border-radius: 6px; border: 2px solid var(--ink); background: var(--cream); }
+    #bossPips i.on { background: linear-gradient(90deg, #a2322f, #d8343c); }
+    #banner { position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.9); opacity: 0; pointer-events: none; text-align: center; transition: opacity .25s, transform .25s;
+      font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: clamp(30px, 6vw, 52px); color: var(--paper); text-shadow: 0 0 3px var(--ink), 3px 3px 0 var(--ink); white-space: nowrap; }
+    #banner small { display: block; font-family: 'Zen Maru Gothic', sans-serif; font-weight: 700; font-size: clamp(14px, 2.4vw, 19px); margin-top: 6px; }
+    #banner.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    #legend { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 6px 14px; font-size: 15px; font-weight: 700; display: flex; gap: 16px; pointer-events: none; white-space: nowrap; }
+    #legend b.b { color: #3a63b8; } #legend b.o { color: #c4651a; }
+    @media (max-width: 600px) { #bossBar { top: 76px; } #legend { font-size: 13px; gap: 10px; } }
     .credit { position: fixed; right: 12px; bottom: 8px; font-size: 12px; color: var(--paper); text-shadow: 0 1px 2px var(--ink); opacity: .85; }
     .credit a { color: inherit; }
     @media (max-width: 600px) { .score { font-size: 26px; } #title { place-items: end center; } .keys .desk { display: none; } }
@@ -74,7 +87,7 @@
       <div class="keys">
         <span class="desk"><kbd>←</kbd><kbd>→</kbd> change lanes · <kbd>↑</kbd>/<kbd>Space</kbd> leap · <kbd>↓</kbd> slide<br /></span>
         <span class="touch">swipe ← → to change lanes · swipe ↑ to leap · swipe ↓ to slide<br /></span>
-        Catch the glowing moths in a row for combos. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandages and 🎀 ribbons.
+        Catch the glowing moths in a row for combos. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandages and 🎀 ribbons. Every few hundred metres, a boss swoops in…
       </div>
       <button id="playBtn" disabled>Loading…</button>
     </div>
@@ -93,6 +106,10 @@
       <div class="hint">or press <kbd>Space</kbd></div>
     </div>
   </div>
+
+  <div id="bossBar" class="paper hidden"><div id="bossName"></div><div id="bossPips"></div></div>
+  <div id="banner"></div>
+  <div id="legend" class="paper hidden"><span><b class="b">● blue wave</b> keep running, don't move</span><span><b class="o">● orange wave</b> slide!</span></div>
 
   <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
 

@@ -40,6 +40,21 @@ export const sfx = {
   hit: () => { noise(0.4, 180, 0.6, 0, 0.7); pluck(mtof(45), 0, 0.8, 0.2, master, 'triangle'); },
   fall: () => { if (!ctx || snd.muted) return; const o = ctx.createOscillator(); const g = ctx.createGain(); const t = ctx.currentTime; o.frequency.setValueAtTime(600, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.9); g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 1); o.type = 'triangle'; o.connect(g).connect(master); o.start(t); o.stop(t + 1.05); },
   click: () => pluck(mtof(84), 0, 0.3, 0.08, master, 'triangle'),
+  // bosses
+  bossIntro: () => { [45, 52, 57, 60].forEach((m, i) => pluck(mtof(m), i * 0.18, 1.6, 0.14, master, 'triangle')); noise(1.2, 200, 0.25, 0, 0.4); pluck(mtof(81), 0.7, 2, 0.08); },
+  charge: (c) => { if (!ctx || snd.muted) return; const t = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = 'sine';
+    o.frequency.setValueAtTime(c ? 330 : 220, t); o.frequency.exponentialRampToValueAtTime(c ? 990 : 660, t + 0.5); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    o.connect(g).connect(master); o.start(t); o.stop(t + 0.6); },
+  wave: (c) => { noise(0.7, c ? 900 : 500, 0.35, 0, 0.5); pluck(mtof(c ? 69 : 62), 0, 0.8, 0.1, master, 'triangle'); },
+  dodge: () => pluck(mtof(88), 0, 0.35, 0.07, master, 'triangle'),
+  lanternDrop: () => [84, 88, 91].forEach((m, i) => pluck(mtof(m), i * 0.09, 0.9, 0.08)),
+  throw: () => { noise(0.3, 1400, 0.25, 0, 0.6); pluck(mtof(79), 0, 0.3, 0.08, master, 'triangle'); },
+  bossHit: () => { noise(0.5, 160, 0.7, 0, 0.6); [72, 67, 64].forEach((m, i) => pluck(mtof(m), 0.05 + i * 0.07, 0.6, 0.12, master, 'triangle')); },
+  bossDown: () => [60, 64, 67, 72, 76, 79, 84].forEach((m, i) => pluck(mtof(m), i * 0.08, 1.2, 0.1, master, 'triangle')),
+  crackWarn: () => { pluck(mtof(57), 0, 0.25, 0.1, master, 'square'); pluck(mtof(57), 0.18, 0.25, 0.1, master, 'square'); },
+  slam: () => { noise(0.6, 120, 0.9, 0, 0.5); noise(0.4, 2000, 0.25, 0.02, 0.8); },
+  stuck: () => { pluck(mtof(55), 0, 0.3, 0.1, master, 'triangle'); pluck(mtof(54), 0.15, 0.3, 0.1, master, 'triangle'); pluck(mtof(53), 0.3, 0.5, 0.1, master, 'triangle'); },
+  escape: () => noise(0.25, 700, 0.3),
 };
 // a gentle, slightly melancholic music-box waltz in A minor
 const SONG = [
