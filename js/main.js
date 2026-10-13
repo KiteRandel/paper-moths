@@ -1,10 +1,11 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=17';
-import { InkPass } from './post.js?v=17';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=17';
-import { createBosses } from './boss.js?v=17';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=18';
+import { InkPass } from './post.js?v=18';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=18';
+import { createBosses } from './boss.js?v=18';
+import { createShop } from './shop.js?v=18';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -174,12 +175,12 @@ function sparkle(pos, color = PAL.glow, n = 8) {
 }
 
 // =================================================================== track generation
-let blocks = [], obstacles = [], moths = [], powers = [], decor = [];
+let blocks = [], obstacles = [], moths = [], powers = [], decor = [], signs = [];
 let genZ = 0;          // world z where the next piece starts (we run toward -z)
 let rowsSincePower = 0;
 function clearWorld() {
   for (const o of [...world.children]) world.remove(o);
-  blocks = []; obstacles = []; moths = []; powers = []; decor = []; genZ = 8; rowsSincePower = 0;
+  blocks = []; obstacles = []; moths = []; powers = []; decor = []; signs = []; genZ = 8; rowsSincePower = 0;
 }
 function addObstacle(kind, lane, z) {
   let mesh, box;
@@ -194,6 +195,7 @@ function addLaundry(lanes, z) {
   const xs = lanes.map((l) => LANES[l]);
   obstacles.push({ kind: 'laundry', mesh, box: { x0: Math.min(...xs) - 0.85, x1: Math.max(...xs) + 0.85, y0: 0.95, y1: 3, z0: z - 0.3, z1: z + 0.3 } });
 }
+function addSign(lane, z) { const s = shop.makeSign(); s.position.set(LANES[lane], 0, z); world.add(s); signs.push({ s, lane, z, used: false }); }
 function addMoth(x, y, z, gold = false) { const m = moth(gold); m.position.set(x, y, z); world.add(m); moths.push({ m, gold, base: y }); }
 function addPower(kind, lane, z) { const p = powerup(kind); p.position.set(LANES[lane], 1.1, z); world.add(p); powers.push({ p, kind }); }
 function mothLine(lane, z0, n, step = 1.6, y = 1.0) { for (let i = 0; i < n; i++) addMoth(LANES[lane], y, z0 - i * step); }
@@ -222,7 +224,9 @@ function generateBlock(speed) {
   while (z > z1 + Math.max(6, speed * 0.6)) {
     const r = Math.random();
     let free = Math.floor(Math.random() * 3);
-    if (r < 0.28) {                                            // one crate
+    if (shopOn && -z > nextShopAt && z < z0 - 12) {              // a SHOP archway over one lane, with nothing else in this row
+      const l = prevFree; addSign(l, z); mothLine(l, z + 7, 4); free = l; nextShopAt = -z + 650;
+    } else if (r < 0.28) {                                            // one crate
       const l = choice([0, 1, 2]); addObstacle('crate', l, z); free = (l + 1 + Math.floor(Math.random() * 2)) % 3;
       if (Math.random() < 0.6) mothArc(l, z); else mothLine(free, z + 3, 4);
     } else if (r < 0.48) {                                     // two crates, one gap
@@ -292,10 +296,63 @@ function play(name, fade = 0.15) {
 }
 
 // =================================================================== game state
-let state = 'title';      // title | run | dead
+let state = 'title';      // title | run | shop | dead
 let speed = 0, dist = 0, mothsGot = 0, score = 0, combo = 0, comboT = 0, runT = 0, best = 0, shake = 0, deadT = 0, flash = 0;
 try { best = +localStorage.getItem('paperMoths.best') || 0; } catch (_) { /* ignore */ }
 $('best').textContent = best;
+let shopOn = true, nextShopAt = 240;
+
+// =================================================================== the moth purse: every moth you catch is saved, and spent at the shop
+let wallet = 0, walletShown = 0;
+try { wallet = walletShown = Math.max(0, +localStorage.getItem('paperMoths.wallet') || 0); } catch (_) { /* ignore */ }
+function saveWallet() { try { localStorage.setItem('paperMoths.wallet', wallet); } catch (_) { /* ignore */ } }
+function showWallet() { $('walletN').textContent = walletShown; }
+function bumpWallet(n) {
+  walletShown = Math.min(wallet, walletShown + n); showWallet();
+  const el = $('wallet'); el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+}
+const walletApi = {
+  get: () => wallet,
+  spend(n) { if (wallet < n) return false; wallet -= n; walletShown = Math.min(walletShown, wallet); saveWallet(); showWallet(); return true; },
+};
+// a little moth icon drawn from the same paper wing the 3D moths use
+let mothIcon = '';
+function makeMothIcon() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const img = T.wing.image;
+  g.save(); g.translate(32, 32); g.rotate(-0.25); g.drawImage(img, 0, -26, 30, 30); g.restore();
+  g.save(); g.translate(32, 32); g.scale(-1, 1); g.rotate(-0.25); g.drawImage(img, 0, -26, 30, 30); g.restore();
+  g.fillStyle = PAL.umber; g.beginPath(); g.ellipse(32, 30, 3, 12, 0, 0, 7); g.fill();
+  mothIcon = c.toDataURL(); $('walletIcon').src = mothIcon;
+}
+// collected moths flutter from where they were caught to the purse in the corner
+const fliers = [];
+function flyToWallet(worldPos, value, gold) {
+  const v = worldPos.clone().project(camera);
+  const x = (v.x + 1) / 2 * innerWidth, y = (1 - v.y) / 2 * innerHeight;
+  if (fliers.length > 40 || v.z > 1) { bumpWallet(value); return; }
+  const el = document.createElement('img'); el.src = mothIcon; el.className = gold ? 'flyMoth gold' : 'flyMoth'; document.body.appendChild(el);
+  const r = $('wallet').getBoundingClientRect();
+  const tx = r.left + 26, ty = r.top + r.height / 2;
+  fliers.push({ el, x0: x, y0: y, cx: lerp(x, tx, 0.35) + rand(-80, 80), cy: Math.min(y, ty) - rand(60, 160), tx, ty, t: 0, dur: rand(0.55, 0.75), value, ph: rand(0, 6) });
+}
+function updateFliers(dt) {
+  for (const f of [...fliers]) {
+    f.t += dt / f.dur; const t = Math.min(1, f.t), e = t * t * (3 - 2 * t), u = 1 - e;
+    const x = u * u * f.x0 + 2 * u * e * f.cx + e * e * f.tx, y = u * u * f.y0 + 2 * u * e * f.cy + e * e * f.ty;
+    const flap = 0.55 + 0.45 * Math.abs(Math.sin(f.t * 30 + f.ph));
+    f.el.style.transform = `translate(${x - 19}px, ${y - 19}px) scale(${(1.25 - e * 0.55) * flap}, ${1.25 - e * 0.55}) rotate(${Math.sin(f.t * 12) * 20}deg)`;
+    if (f.t >= 1) { f.el.remove(); fliers.splice(fliers.indexOf(f), 1); bumpWallet(f.value); }
+  }
+}
+
+// =================================================================== bandaids: stack up to three, each one blocks a hit
+const MAX_BANDAIDS = 3;
+function setBandaids(n) {
+  player.shield = clamp(n, 0, 99); player.shieldFx.visible = player.shield > 0;
+  $('pShield').classList.toggle('hidden', player.shield <= 0);
+  $('pShieldN').textContent = player.shield > 1 && player.shield < 99 ? ` \u00d7${player.shield}` : '';
+}
+const bandaidApi = { get: () => player.shield, add(n) { setBandaids(Math.min(MAX_BANDAIDS, player.shield + n)); }, max: MAX_BANDAIDS };
 
 // =================================================================== first-run tutorial: slow motion until you press the right key
 const tut = { on: false, done: false, waiting: null, jumped: false, slid: false, scale: 1, target: 1, crateZ: 0, laundryZ: 0 };
@@ -338,8 +395,8 @@ function resetRun() {
   boss.reset();
   clearWorld();
   player.lane = 1; player.x = 0; player.y = 0; player.vy = 0; player.z = 0; player.grounded = true; player.slideT = 0;
-  player.alive = true; player.falling = false; player.shield = 0; player.magnet = 0; player.shieldFx.visible = false;
-  speed = 0; dist = 0; mothsGot = 0; mothPoints = 0; score = 0; combo = 0; comboT = 0; runT = 0; deadT = 0;
+  player.alive = true; player.falling = false; setBandaids(0); player.magnet = 0;
+  nextShopAt = 240; speed = 0; dist = 0; mothsGot = 0; mothPoints = 0; score = 0; combo = 0; comboT = 0; runT = 0; deadT = 0;
   genZ = 6;
   // a starting runway (longer on the first run, with the tutorial crates and laundry on it)
   tut.on = !tut.done; tut.waiting = null; tut.jumped = false; tut.slid = false; tut.target = 1; tut.scale = 1; hideTut();
@@ -383,22 +440,37 @@ const boss = createBosses({
   get speed() { return speed; }, get dist() { return dist; }, get t() { return elapsed; },
   addPoints(n) { mothPoints += n; },
   fx(f, sh) { flash = Math.max(flash, f); shake = Math.max(shake, sh); },
-  giveShield() { player.shield = 1; player.shieldFx.visible = true; $('pShield').classList.remove('hidden'); },
+  giveShield() { bandaidApi.add(1); },
   hurt(msg) {
     if (!player.alive) return;
-    if (player.shield > 0) { player.shield = 0; player.shieldFx.visible = false; $('pShield').classList.add('hidden'); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
+    if (player.shield > 0) { setBandaids(player.shield - 1); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
     else { lastHurt = msg; die('hit'); }
   },
 });
 let lastHurt = '';
 function collectMoth(mo) {
+  const at = mo.m.getWorldPosition(new THREE.Vector3());
   world.remove(mo.m); moths.splice(moths.indexOf(mo), 1);
+  const value = mo.gold ? 5 : 1; wallet += value; saveWallet(); flyToWallet(at, value, mo.gold);
   combo = comboT > 0 ? combo + 1 : 1; comboT = 1.3;
   const mult = Math.min(1 + Math.floor(combo / 5), 5);
   mothsGot++; mothPoints += (mo.gold ? 50 : 10) * mult;
   mo.gold ? sfx.bell() : sfx.moth(combo % 11);
-  sparkle(mo.m.getWorldPosition(new THREE.Vector3()), mo.gold ? PAL.ember : PAL.glow, mo.gold ? 14 : 7);
+  sparkle(at, mo.gold ? PAL.ember : PAL.glow, mo.gold ? 14 : 7);
 }
+
+function enterShop() {
+  if (boss.quiet() || !shopOn) return;
+  state = 'shop'; sfx.power(); shop.open();
+}
+function leaveShop() {
+  // clear a little breathing room ahead, then back to running
+  const p = player;
+  for (const o of [...obstacles]) if (o.box.z1 < p.z + 1 && o.box.z0 > p.z - 22) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
+  state = 'run'; play('Run', 0);
+  const b = $('banner'); b.innerHTML = 'Back to the roof!'; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1200);
+}
+const shop = createShop({ sfx, bgOnly, wallet: walletApi, bandaids: bandaidApi, onLeave: leaveShop });
 
 // =================================================================== input
 const act = { left() { if (tut.waiting) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
@@ -473,7 +545,7 @@ function updateWorld(dt) {
   if (p.alive) for (const o of obstacles) {
     if (o.dead || Math.abs(o.box.z0 - p.z) > 3) continue;
     if (hits(o.box, p.x, p.y, p.z, h)) {
-      if (p.shield > 0) { p.shield = 0; p.shieldFx.visible = false; $('pShield').classList.add('hidden'); o.dead = true; sparkle(o.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); world.remove(o.mesh); sfx.shield(); flash = 0.3; }
+      if (p.shield > 0) { setBandaids(p.shield - 1); o.dead = true; sparkle(o.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); world.remove(o.mesh); sfx.shield(); flash = 0.3; }
       else die('hit');
     }
   }
@@ -482,18 +554,23 @@ function updateWorld(dt) {
     const m = mo.m; const ud = m.userData; ud.t += dt * 14;
     ud.l.rotation.y = Math.sin(ud.t) * 0.9; ud.r.rotation.y = -Math.sin(ud.t) * 0.9;
     m.position.y = mo.base + Math.sin(ud.t * 0.15) * 0.08;
-    if (p.magnet > 0 && Math.abs(m.position.z - p.z) < 14) { tmp.set(p.x, p.y + 1, p.z); m.position.lerp(tmp, Math.min(1, dt * 7)); mo.base = m.position.y; }
-    if (p.alive && m.position.distanceTo(tmp.set(p.x, p.y + 0.9, p.z)) < 0.95) collectMoth(mo);
+    if (p.alive && p.magnet > 0 && m.position.z < p.z + 0.5 && m.position.z > p.z - 9) collectMoth(mo);     // the ribbon whisks them straight into your purse
+    else if (p.alive && m.position.distanceTo(tmp.set(p.x, p.y + 0.9, p.z)) < 0.95) collectMoth(mo);
     else if (m.position.z > p.z + 8) { world.remove(m); moths.splice(moths.indexOf(mo), 1); }
   }
   for (const pw of [...powers]) {
     pw.p.rotation.y += dt * 2; pw.p.position.y = 1.1 + Math.sin(runT * 3) * 0.15;
     if (p.alive && pw.p.position.distanceTo(tmp.set(p.x, p.y + 0.9, p.z)) < 1.1) {
       world.remove(pw.p); powers.splice(powers.indexOf(pw), 1); sfx.power(); sparkle(pw.p.position, PAL.glow, 14);
-      if (pw.kind === 'shield') { p.shield = 1; p.shieldFx.visible = true; $('pShield').classList.remove('hidden'); }
+      if (pw.kind === 'shield') bandaidApi.add(1);
       else { p.magnet = 9; $('pMagnet').classList.remove('hidden'); }
     }
   }
+  for (const sg of signs) {
+    shop.animSign(sg.s, runT);
+    if (!sg.used && p.alive && state === 'run' && p.lane === sg.lane && Math.abs(p.x - LANES[sg.lane]) < 0.6 && p.z < sg.z + 0.3 && p.z > sg.z - 1.5) { sg.used = true; enterShop(); }
+  }
+  signs = signs.filter((sg) => (sg.z > p.z + 25 ? (world.remove(sg.s), false) : true));
   for (const o of obstacles) if (o.kind === 'laundry') o.mesh.children.forEach((c) => { if (c.userData.sway !== undefined) c.rotation.x = Math.sin(runT * 3 + c.userData.sway) * 0.12; });
   // recycle behind, generate ahead
   if (state === 'run') boss.update(dt);
@@ -541,7 +618,8 @@ function updateCamera(dt, t) {
 }
 function updateHUD() {
   const sc = Math.floor(dist) + mothPoints;
-  $('score').textContent = sc; $('dist').textContent = `${Math.floor(dist)} m`; $('moths').textContent = mothsGot;
+  $('score').textContent = sc; $('dist').textContent = `${Math.floor(dist)} m`;
+  document.body.classList.toggle('bossing', !$('legend').classList.contains('hidden'));
   const mult = Math.min(1 + Math.floor(combo / 5), 5);
   const c = $('combo'); c.textContent = combo > 1 ? `${combo} combo · ×${mult}` : ''; c.classList.toggle('on', combo > 1);
 }
@@ -556,14 +634,16 @@ function frame() {
   let total = raw * simScale * tut.scale;
   while (total > 1e-6) {
     const dt = Math.min(total, 1 / 60); total -= dt; elapsed += dt;
+    if (state === 'shop') { shop.update(dt); continue; }
     if (state !== 'title') { if (state === 'run' && stepHook) stepHook(dt); updateTut(); if (tut.cut) { tut.cut = false; break; } updatePlayer(dt); updateWorld(dt); if (state === 'dead') deadT += dt; }
     else { player.mixer?.update(dt); for (const mo of moths) { const ud = mo.m.userData; ud.t += dt * 10; ud.l.rotation.y = Math.sin(ud.t) * 0.9; ud.r.rotation.y = -Math.sin(ud.t) * 0.9; } }
     updateFx(dt, elapsed); updateCamera(dt, elapsed);
   }
   if (state === 'run') updateHUD();
   tickMusic(1 + (speed - 12) / 40);
+  updateFliers(raw);
   flash = Math.max(0, flash - 0.03); ink.quad.material.uniforms.flash.value = flash;
-  ink.render(scene, camera, elapsed);
+  if (shop.open_) shop.render(ink, elapsed); else ink.render(scene, camera, elapsed);
 }
 
 new GLTFLoader().load('assets/amara.glb', (gltf) => {
@@ -571,7 +651,7 @@ new GLTFLoader().load('assets/amara.glb', (gltf) => {
   model.rotation.y = Math.PI;                 // she runs toward -z
   model.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
   player.root.add(model); player.model = model;
-  boss.init(gltf);
+  boss.init(gltf); shop.init(gltf); makeMothIcon(); showWallet(); $('wallet').classList.remove('hidden');
   player.mixer = new THREE.AnimationMixer(model);
   for (const c of gltf.animations) player.actions[c.name] = player.mixer.clipAction(c);
   resetRun();
@@ -585,6 +665,16 @@ frame();
 
 window.moths = {
   get boss() { return boss.state; },
+  set shopOff(v) { shopOn = !v; },
+  get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },
+  set wallet(n) { wallet = walletShown = n; saveWallet(); showWallet(); },
+  get shop() { return { open: shop.open_, busy: shop.busy, signs: signs.map((sg) => ({ lane: sg.lane, dz: +(player.z - sg.z).toFixed(1), used: sg.used })), nextAt: nextShopAt }; },
+  shopBuy() { shop.buy(); }, shopLeave() { shop.leave(); },
+  signAhead(dz = 14) {   // put a shop sign right ahead in the current lane (for testing)
+    const z = player.z - dz;
+    for (const o of [...obstacles]) if (Math.abs(o.box.z0 - z) < 6) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
+    addSign(player.lane, z);
+  },
   crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); },
   get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
   resetTutorial() { tut.done = false; try { localStorage.removeItem('paperMoths.tutorial'); } catch (_) { /* ignore */ } },
@@ -604,7 +694,7 @@ window.moths = {
   get state() { return { state, speed: +speed.toFixed(2), dist: +dist.toFixed(1), moths: mothsGot, score: Math.floor(dist) + mothPoints, lane: player.lane, y: +player.y.toFixed(2), alive: player.alive, shield: player.shield, magnet: +player.magnet.toFixed(1), obstacles: obstacles.length, combo }; },
   act, startRun, set simScale(v) { simScale = v; }, get frames() { return frames; },
   nextObstacle() { return obstacles.filter((o) => !o.dead && o.box.z1 < player.z).sort((a, b) => b.box.z1 - a.box.z1)[0]; },
-  set god(v) { player.shield = v ? 99 : 0; },
+  set god(v) { setBandaids(v ? 99 : 0); },
   // tiny autopilot used for automated playtests
   autopilot() {
     const p = player; if (!p.alive || state !== 'run') return;

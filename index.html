@@ -74,7 +74,37 @@
     .tut.jump .swipe { animation: swipeUp 1s infinite; } .tut.slide .swipe { animation: swipeDown 1s infinite; }
     @keyframes swipeUp { 0% { transform: translateY(26px); opacity: 0; } 25% { opacity: 1; } 80% { transform: translateY(-26px); opacity: 1; } 100% { opacity: 0; } }
     @keyframes swipeDown { 0% { transform: translateY(-26px) rotate(180deg); opacity: 0; } 25% { opacity: 1; } 80% { transform: translateY(26px) rotate(180deg); opacity: 1; } 100% { opacity: 0; } }
-    .credit { position: fixed; right: 12px; bottom: 8px; font-size: 12px; color: var(--paper); text-shadow: 0 1px 2px var(--ink); opacity: .85; }
+    /* the moth purse */
+    #wallet { position: fixed; right: 14px; bottom: 14px; display: flex; align-items: center; gap: 6px; padding: 5px 16px 5px 8px; pointer-events: none; z-index: 5; }
+    #wallet img { width: 40px; height: 40px; }
+    #walletN { font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: 28px; min-width: 1.6ch; text-align: right; }
+    #wallet.bump { animation: bump .22s; }
+    @keyframes bump { 40% { transform: scale(1.14) rotate(-2deg); } }
+    .flyMoth { position: fixed; left: 0; top: 0; width: 38px; height: 38px; pointer-events: none; z-index: 6; filter: drop-shadow(0 0 5px #fff3e0) drop-shadow(0 0 10px #f6dcc0) brightness(1.15); will-change: transform; }
+    .flyMoth.gold { filter: drop-shadow(0 0 8px #ffb000) sepia(1) saturate(3) hue-rotate(-12deg); width: 40px; height: 40px; }
+    @media (max-width: 760px) { #wallet { bottom: 12px; } body.bossing #wallet { bottom: 96px; } }
+    /* Peony's shop */
+    body.shopping #hud, body.shopping #combo { display: none; }
+    #fade { position: fixed; inset: 0; background: #f3e4ea; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 8; }
+    #fade.on { opacity: 1; }
+    #shop { position: fixed; inset: 0; pointer-events: none; }
+    #shopTitle { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); padding: 6px 20px; font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: 22px; color: #a8386d; }
+    #shopSay { position: fixed; left: 50%; top: 17%; transform: translateX(-50%); max-width: min(360px, 80vw); padding: 10px 16px; font-weight: 700; font-size: 17px; text-align: center; }
+    #shopSay::after { content: ''; position: absolute; left: 50%; bottom: -12px; width: 18px; height: 18px; background: var(--paper); border-right: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
+    #shopSay.pop { animation: bump .25s; }
+    .shopPanel { position: fixed; left: 18px; bottom: 18px; width: min(360px, calc(100vw - 36px)); padding: 14px 16px; pointer-events: auto; }
+    .shopPanel h2 { margin: 0 0 8px; font-family: 'Shippori Mincho B1', serif; font-size: 18px; }
+    .item { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 8px; border: 2px dashed var(--rose); border-radius: 12px; background: rgba(255,194,220,.25); }
+    .item .ic { font-size: 34px; text-align: center; }
+    .item b { font-family: 'Shippori Mincho B1', serif; font-size: 18px; }
+    .item small { display: block; font-size: 13px; opacity: .8; }
+    #buyBand { padding: 8px 14px; background: #c94f86; white-space: nowrap; }
+    #buyBand:hover { background: #a8386d; }
+    #buyBand.poor { background: var(--rose); }
+    #leaveBtn { margin-top: 12px; width: 100%; }
+    .shopPanel .hint { text-align: center; }
+    @media (max-width: 600px) { #shopSay { top: 12%; font-size: 15px; } .shopPanel { left: 50%; transform: translateX(-50%); bottom: 70px; } .shopPanel .hint { display: none; } }
+    .credit { position: fixed; left: 12px; bottom: 8px; font-size: 12px; color: var(--paper); text-shadow: 0 1px 2px var(--ink); opacity: .85; }
     .credit a { color: inherit; }
     @media (max-width: 600px) { .score { font-size: 26px; } #title { place-items: end center; } .keys .desk { display: none; } }
     @media (min-width: 601px) { .keys .touch { display: none; } }
@@ -86,11 +116,11 @@
   <div id="hud" class="hidden">
     <div class="paper">
       <div class="score" id="score">0</div>
-      <div class="sub"><span id="dist">0 m</span><span>🦋 <b id="moths">0</b></span></div>
+      <div class="sub"><span id="dist">0 m</span></div>
     </div>
     <div>
       <div class="paper sub">best <b id="best">0</b><button id="muteBtn" title="Music">♪</button></div>
-      <div class="powers"><span id="pShield" class="paper pw hidden">🩹 bandage shield</span><span id="pMagnet" class="paper pw hidden">🎀 ribbon magnet</span></div>
+      <div class="powers"><span id="pShield" class="paper pw hidden">🩹 bandaid<b id="pShieldN"></b></span><span id="pMagnet" class="paper pw hidden">🎀 ribbon magnet</span></div>
     </div>
   </div>
   <div id="combo"></div>
@@ -102,7 +132,7 @@
       <div class="keys">
         <span class="desk"><kbd>←</kbd><kbd>→</kbd> change lanes · <kbd>↑</kbd>/<kbd>Space</kbd> leap · <kbd>↓</kbd> slide<br /></span>
         <span class="touch">swipe ← → to change lanes · swipe ↑ to leap · swipe ↓ to slide<br /></span>
-        Catch the glowing moths in a row for combos. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandages and 🎀 ribbons. Every few hundred metres, a boss swoops in…
+        Catch the glowing moths in a row for combos. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandaids and 🎀 ribbons. Run through a pink <b>SHOP</b> sign to spend your moths at Peony&rsquo;s. Every few hundred metres, a boss swoops in…
       </div>
       <button id="playBtn" disabled>Loading…</button>
     </div>
@@ -127,6 +157,18 @@
   <div id="tut" class="tut"><div class="paper"><div class="keys"></div><div class="say"></div></div></div>
   <div id="legend" class="paper hidden"><span><b class="b">● blue wave</b> keep running, don't move</span><span><b class="o">● orange wave</b> slide!</span></div>
 
+  <div id="wallet" class="paper hidden" title="moths saved up for the shop"><img id="walletIcon" alt="" /><b id="walletN">0</b></div>
+  <div id="shop" class="hidden">
+    <div id="shopSay" class="paper">Welcome in!</div>
+    <div class="shopPanel paper">
+      <h2>Today&rsquo;s wares</h2>
+      <div class="item"><div class="ic">🩹</div><div><b>Bandaid</b><small>Blocks one hit. Carry up to 3.</small><small id="shopHave">You have 0 / 3</small></div><button id="buyBand">🦋 50</button></div>
+      <button id="leaveBtn">Back to the roof →</button>
+      <div class="hint"><kbd>Enter</kbd> buy · <kbd>Esc</kbd> or <kbd>Space</kbd> leave</div>
+    </div>
+  </div>
+  <div id="fade"></div>
+
   <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
 
   <script type="importmap">
@@ -135,6 +177,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=17"></script>
+  <script type="module" src="js/main.js?v=18"></script>
 </body>
 </html>
