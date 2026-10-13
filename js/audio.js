@@ -86,6 +86,12 @@ export const sfx = {
   slam: () => { noise(0.6, 120, 0.9, 0, 0.5); noise(0.4, 2000, 0.25, 0.02, 0.8); },
   stuck: () => { pluck(mtof(55), 0, 0.3, 0.1, master, 'triangle'); pluck(mtof(54), 0.15, 0.3, 0.1, master, 'triangle'); pluck(mtof(53), 0.3, 0.5, 0.1, master, 'triangle'); },
   escape: () => noise(0.25, 700, 0.3),
+  // Wrath & Joy
+  boing: () => { if (!ctx || snd.muted) return; const t = ctx.currentTime; const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = 'triangle';
+    o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(720, t + 0.25); o.frequency.exponentialRampToValueAtTime(420, t + 0.5);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55); o.connect(g).connect(master); o.start(t); o.stop(t + 0.6); },
+  giggle: () => [84, 88, 86, 91].forEach((m, i) => pluck(mtof(m), i * 0.07, 0.18, 0.06, master, 'sine')),
+  springPlant: () => { pluck(mtof(79), 0, 0.4, 0.09, master, 'triangle'); pluck(mtof(86), 0.06, 0.5, 0.07); },
   // Lilac & Glitch
   sing: (m, dur = 0.5, bright = false) => {   // a soft sung vowel: two sines with vibrato through a vowel-ish filter
     if (!ctx || snd.muted) return; const t = ctx.currentTime, f = mtof(m);

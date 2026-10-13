@@ -29,7 +29,9 @@ Every few hundred metres a boss swoops in over the rooftops. You get a free band
   - 🔵 **Blue wave:** keep running and don't touch anything. Jumping, sliding or changing lanes as it passes hurts you.
   - 🟠 **Orange wave:** slide under it.
   - After each round of waves they drop a golden paper lantern into one lane. Catch it and Amara flings it back at them. Three hits and they drift apart.
-- **Crimson Amara**: she dives and smashes holes through the roof ahead. A red crack flashes in a lane right before she hits it, so jump the hole or change lanes. Sometimes she slams too hard and gets her arms stuck in the roof. Run into her in her lane while she's struggling to land a hit. Three hits and she crashes out.
+- **Wrath & Joy**: furious red Wrath smashes the roof while giddy yellow Joy bounces around her, giggling.
+  - Cracks flash across the roof before each slam. 🔴 **Red crack:** Wrath smashes a hole there, so stay out of that lane or jump it. 🟡 **Gold crack:** Joy cannonballs down and plants a golden sunflower spring.
+  - **Bounce on Joy's spring** to launch high into the air straight at Wrath. She tries to dodge into another lane, so steer in mid-air and smack into her. The angrier she gets, the more red cracks per row. Three hits and Wrath runs out of fury, and Joy hugs her as they float away.
 - **Lilac & Glitch**: composed purple Lilac sings while twitchy green Glitch strains at the leash in her hand.
   - Each note of Lilac's song points to a lane: 🎵 low = left, middle = centre, high = right. A glowing note floats over each lane as she sings.
   - Then Glitch replays the song as strikes, tearing down those lanes in the same order and rhythm. Be out of the lane on the beat!
@@ -41,7 +43,7 @@ Beating a boss earns a big score bonus and a shower of moths.
 
 Everything is drawn to match Amara's illustration. The palette is sampled straight from her texture, objects use soft toon shading, and an ink-outline pass gives every shape the same brown lineart. A paper-grain sepia finish goes over the whole frame. The textures (roof tiles, brick, plaster walls with lit windows, crates, leopard-spot laundry and paper lanterns) are painted in code. The music box waltz and sound effects are synthesized live. Boss fights fade in their own theme, "Dreamtone Bloom".
 
-Amara (`assets/amara.glb`) is KiteRandel's character, modeled, rigged and animated in Blender, with run, leap, slide and stumble animations made for this game, plus flying, embracing, slamming, struggling, singing and glitching animations for the bosses.
+Amara (`assets/amara.glb`) is KiteRandel's character, modeled, rigged and animated in Blender, with run, leap, slide and stumble animations made for this game, plus flying, embracing, slamming, singing and glitching animations for the bosses.
 
 ## Run locally
 
