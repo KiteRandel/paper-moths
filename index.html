@@ -59,6 +59,21 @@
     #legend { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 6px 14px; font-size: 15px; font-weight: 700; display: flex; gap: 16px; pointer-events: none; white-space: nowrap; }
     #legend b.b { color: #3a63b8; } #legend b.o { color: #c4651a; } #legend b.p { color: #7a3fc0; } #legend b.r { color: #b52a2a; } #legend b.y { color: #b88400; }
     @media (max-width: 760px) { #bossBar { top: 76px; } #legend { font-size: 12.5px; gap: 4px 10px; flex-wrap: wrap; justify-content: center; white-space: normal; width: 94vw; text-align: center; } }
+    /* first-run tutorial prompt */
+    .tut { position: fixed; left: 50%; top: 24%; transform: translate(-50%, -50%) scale(.9); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+    .tut.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .tut .paper { padding: 14px 22px 12px; text-align: center; }
+    .tut .keys { display: flex; align-items: center; justify-content: center; gap: 10px; }
+    .tut .keys i { font-style: normal; font-size: 14px; opacity: .65; }
+    .tut kbd { display: inline-grid; place-items: center; min-width: 54px; height: 54px; padding: 0 10px; font: 800 22px 'Zen Maru Gothic', sans-serif; color: var(--ink);
+      background: var(--cream); border: 2.5px solid var(--ink); border-radius: 10px; box-shadow: 0 5px 0 var(--ink); animation: keypress .9s infinite; }
+    .tut kbd.wide { min-width: 120px; font-size: 17px; }
+    @keyframes keypress { 0%, 55%, 100% { transform: translateY(0); box-shadow: 0 5px 0 var(--ink); background: var(--cream); } 20%, 35% { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); background: var(--glow); } }
+    .tut .say { margin-top: 10px; font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: 22px; }
+    .tut .swipe { font-size: 48px; display: inline-block; }
+    .tut.jump .swipe { animation: swipeUp 1s infinite; } .tut.slide .swipe { animation: swipeDown 1s infinite; }
+    @keyframes swipeUp { 0% { transform: translateY(26px); opacity: 0; } 25% { opacity: 1; } 80% { transform: translateY(-26px); opacity: 1; } 100% { opacity: 0; } }
+    @keyframes swipeDown { 0% { transform: translateY(-26px) rotate(180deg); opacity: 0; } 25% { opacity: 1; } 80% { transform: translateY(26px) rotate(180deg); opacity: 1; } 100% { opacity: 0; } }
     .credit { position: fixed; right: 12px; bottom: 8px; font-size: 12px; color: var(--paper); text-shadow: 0 1px 2px var(--ink); opacity: .85; }
     .credit a { color: inherit; }
     @media (max-width: 600px) { .score { font-size: 26px; } #title { place-items: end center; } .keys .desk { display: none; } }
@@ -109,6 +124,7 @@
 
   <div id="bossBar" class="paper hidden"><div id="bossName"></div><div id="bossPips"></div></div>
   <div id="banner"></div>
+  <div id="tut" class="tut"><div class="paper"><div class="keys"></div><div class="say"></div></div></div>
   <div id="legend" class="paper hidden"><span><b class="b">● blue wave</b> keep running, don't move</span><span><b class="o">● orange wave</b> slide!</span></div>
 
   <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
@@ -119,6 +135,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=11"></script>
+  <script type="module" src="js/main.js?v=13"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=11';
-import { InkPass } from './post.js?v=11';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=11';
-import { createBosses } from './boss.js?v=11';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=13';
+import { InkPass } from './post.js?v=13';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=13';
+import { createBosses } from './boss.js?v=13';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -297,6 +297,43 @@ let speed = 0, dist = 0, mothsGot = 0, score = 0, combo = 0, comboT = 0, runT = 
 try { best = +localStorage.getItem('paperMoths.best') || 0; } catch (_) { /* ignore */ }
 $('best').textContent = best;
 
+// =================================================================== first-run tutorial: slow motion until you press the right key
+const tut = { on: false, done: false, waiting: null, jumped: false, slid: false, scale: 1, target: 1, crateZ: 0, laundryZ: 0 };
+try { tut.done = localStorage.getItem('paperMoths.tutorial') === 'done'; } catch (_) { /* ignore */ }
+const touchUI = matchMedia('(hover: none)').matches;
+function showTut(kind) {
+  const el = $('tut');
+  el.querySelector('.keys').innerHTML = touchUI
+    ? `<span class="swipe ${kind}">${kind === 'jump' ? '\u261D\uFE0F' : '\u261D\uFE0F'}</span>`
+    : (kind === 'jump' ? ['W', '\u2191', 'Space'] : ['S', '\u2193']).map((k, i) => `<kbd style="animation-delay:${i * 0.18}s"${k === 'Space' ? ' class="wide"' : ''}>${k}</kbd>`).join('<i>or</i>');
+  el.querySelector('.say').textContent = kind === 'jump' ? (touchUI ? 'Swipe up to jump the crates!' : 'Jump over the crates!') : (touchUI ? 'Swipe down to slide under!' : 'Slide under the laundry!');
+  el.className = `tut on ${kind}`;
+}
+function hideTut() { const el = $('tut'); if (el) el.className = 'tut'; }
+function tutResolve() {
+  tut.waiting = null; tut.target = 1; hideTut(); sfx.power();
+  if (tut.jumped && tut.slid) finishTut();
+}
+function finishTut() {
+  tut.on = false; tut.done = true;
+  try { localStorage.setItem('paperMoths.tutorial', 'done'); } catch (_) { /* ignore */ }
+  setTimeout(() => { const b = $('banner'); b.innerHTML = 'You\u2019ve got it!<small>now catch those moths</small>'; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1600); }, 900);
+}
+function updateTut() {
+  if (!tut.on || state !== 'run') return;
+  const p = player;
+  if (!tut.jumped && !tut.waiting) {
+    const d = p.z - (tut.crateZ + 0.5);
+    if (!p.grounded && d < 5 && d > -1) tut.jumped = true;                       // already jumping: nothing to teach
+    else if (d < 4.2 && d > 0) { tut.waiting = 'jump'; tut.target = tut.scale = 0.04; tut.cut = true; showTut('jump'); }
+  }
+  if (tut.jumped && !tut.slid && !tut.waiting) {
+    const d = p.z - (tut.laundryZ + 0.3);
+    if (p.slideT > 0 && d < 5 && d > -1) { tut.slid = true; finishTut(); }
+    else if (d < 4.2 && d > 0) { tut.waiting = 'slide'; tut.target = tut.scale = 0.04; tut.cut = true; showTut('slide'); }
+  }
+}
+
 function resetRun() {
   boss.reset();
   clearWorld();
@@ -304,12 +341,20 @@ function resetRun() {
   player.alive = true; player.falling = false; player.shield = 0; player.magnet = 0; player.shieldFx.visible = false;
   speed = 0; dist = 0; mothsGot = 0; mothPoints = 0; score = 0; combo = 0; comboT = 0; runT = 0; deadT = 0;
   genZ = 6;
-  // a starting runway
-  const start = buildingBlock(40); start.position.set(0, 0, -12); world.add(start); blocks.push({ z0: 8, z1: -32, mesh: start });
-  for (const side of [-1, 1]) for (let z = 6; z > -32; z -= 6) { const h = rand(6, 14); const hs = house(4.5, 5, h); hs.position.set(side * rand(6.2, 8.5), -h + rand(-2, 3.5), z - 2.5); world.add(hs); }
+  // a starting runway (longer on the first run, with the tutorial crates and laundry on it)
+  tut.on = !tut.done; tut.waiting = null; tut.jumped = false; tut.slid = false; tut.target = 1; tut.scale = 1; hideTut();
+  const runEnd = tut.on ? -64 : -32;
+  const start = buildingBlock(8 - runEnd); start.position.set(0, 0, (8 + runEnd) / 2); world.add(start); blocks.push({ z0: 8, z1: runEnd, mesh: start });
+  for (const side of [-1, 1]) for (let z = 6; z > runEnd; z -= 6) { const h = rand(6, 14); const hs = house(4.5, 5, h); hs.position.set(side * rand(6.2, 8.5), -h + rand(-2, 3.5), z - 2.5); world.add(hs); }
   const ls = lanternString(-W / 2 - 0.15, W / 2 + 0.15, 3.6); ls.position.z = -6; world.add(ls);
-  genZ = -32; mothLine(1, -8, 6);
-  const gap = 3; mothArc(1, -32 - gap / 2, gap + 3); genZ = -32 - gap;
+  genZ = runEnd; mothLine(1, -8, 6);
+  if (tut.on) {
+    tut.crateZ = -26; tut.laundryZ = -48;
+    for (let l = 0; l < 3; l++) addObstacle('crate', l, tut.crateZ);
+    mothArc(1, tut.crateZ);
+    addLaundry([0, 1, 2], tut.laundryZ); for (let i = -2; i <= 2; i++) addMoth(LANES[1], 0.45, tut.laundryZ + i * 1.1);
+  }
+  const gap = 3; mothArc(1, runEnd - gap / 2, gap + 3); genZ = runEnd - gap;
   while (genZ > -140) generateBlock(10);
 }
 function startRun() {
@@ -356,9 +401,9 @@ function collectMoth(mo) {
 }
 
 // =================================================================== input
-const act = { left() { boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
-  jump() { boss.noteAction(); if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
-  slide() { boss.noteAction(); if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
+const act = { left() { if (tut.waiting) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
+  jump() { if (tut.waiting === 'slide') return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
+  slide() { if (tut.waiting === 'jump') return; boss.noteAction(); if (tut.waiting === 'slide') { tut.slid = true; tutResolve(); } if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (state === 'title' || (state === 'dead' && deadT > 1.3)) { if (k === ' ' || k === 'enter') { e.preventDefault(); startRun(); } return; }
@@ -506,10 +551,12 @@ const clock = new THREE.Clock(); let elapsed = 0, simScale = 1, frames = 0;
 let stepHook = null;   // automated playtests can steer from inside the fixed-step loop
 function frame() {
   requestAnimationFrame(frame); frames++;
-  let total = Math.min(clock.getDelta(), 0.1) * simScale;
+  const raw = Math.min(clock.getDelta(), 0.1);
+  tut.scale += (tut.target - tut.scale) * Math.min(1, raw * (tut.target < tut.scale ? 9 : 6));
+  let total = raw * simScale * tut.scale;
   while (total > 1e-6) {
     const dt = Math.min(total, 1 / 60); total -= dt; elapsed += dt;
-    if (state !== 'title') { if (state === 'run' && stepHook) stepHook(dt); updatePlayer(dt); updateWorld(dt); if (state === 'dead') deadT += dt; }
+    if (state !== 'title') { if (state === 'run' && stepHook) stepHook(dt); updateTut(); if (tut.cut) { tut.cut = false; break; } updatePlayer(dt); updateWorld(dt); if (state === 'dead') deadT += dt; }
     else { player.mixer?.update(dt); for (const mo of moths) { const ud = mo.m.userData; ud.t += dt * 10; ud.l.rotation.y = Math.sin(ud.t) * 0.9; ud.r.rotation.y = -Math.sin(ud.t) * 0.9; } }
     updateFx(dt, elapsed); updateCamera(dt, elapsed);
   }
@@ -538,6 +585,8 @@ frame();
 
 window.moths = {
   get boss() { return boss.state; },
+  get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
+  resetTutorial() { tut.done = false; try { localStorage.removeItem('paperMoths.tutorial'); } catch (_) { /* ignore */ } },
   bossSkip(n) { boss.skipTo(n); },
   get music() { return bossMusicState(); },
   set stepHook(fn) { stepHook = fn; },

@@ -16,6 +16,8 @@ Amara chases glowing paper moths across a sepia town at dusk. Leap the gaps betw
 
 ## Things to know
 
+- Your first run starts with a quick tutorial: time slows right before a row of crates and a laundry line, and waits until you press jump or slide.
+
 - **Moths** are worth 10 points, and catching them in quick succession raises your multiplier, up to ×5. Golden moths are worth 50.
 - 🩹 A **bandage roll** absorbs one bump.
 - 🎀 A **ribbon** pulls nearby moths to you for a few seconds.
