@@ -13,7 +13,7 @@ export function initAudio() {
   music.connect(master); music.connect(delay); delay.connect(lp).connect(fb).connect(delay); lp.connect(master);
   // the boss theme streams from a file and plays through its own fader
   mainGain = ctx.createGain(); mainGain.gain.value = 0; mainGain.connect(master);
-  fetch('assets/main-theme.mp3?v=1').then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((buf) => {
+  fetch('assets/main-theme.mp3?v=2').then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((buf) => {
     mainBuf = buf; music.gain.cancelScheduledValues(ctx.currentTime); music.gain.value = 0;   // the music box steps aside
     applyMain(0.8);
   }).catch((e) => console.warn('main theme failed to load; using the music box', e));
