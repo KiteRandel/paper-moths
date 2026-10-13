@@ -1,11 +1,11 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=21';
-import { InkPass } from './post.js?v=21';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=21';
-import { createBosses } from './boss.js?v=21';
-import { createShop } from './shop.js?v=21';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=22';
+import { InkPass } from './post.js?v=22';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=22';
+import { createBosses } from './boss.js?v=22';
+import { createShop } from './shop.js?v=22';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -352,6 +352,29 @@ function setBandaids(n) {
   $('pShield').classList.toggle('hidden', player.shield <= 0);
   $('pShieldN').textContent = player.shield > 1 && player.shield < 99 ? ` \u00d7${player.shield}` : '';
 }
+// paper scissors (from the shop): automatically snip away the next obstacle coming at you in your lane
+let scissors = 0;
+function setScissors(n) {
+  scissors = clamp(n, 0, 3);
+  $('pSnip').classList.toggle('hidden', scissors <= 0);
+  $('pSnipN').textContent = scissors > 1 ? ` \u00d7${scissors}` : '';
+}
+const scissorsApi = { get: () => scissors, add(n) { setScissors(scissors + n); }, max: 3 };
+function snipAhead() {
+  const p = player; if (scissors <= 0 || !p.alive) return;
+  const reach = speed * 0.4 + 1.2;
+  const o = obstacles.filter((o) => !o.dead && p.x + 0.3 > o.box.x0 && p.x - 0.3 < o.box.x1 && o.box.z1 < p.z + 0.2 && p.z - o.box.z1 < reach)
+    .filter((o) => !(o.kind === 'laundry' && p.slideT > 0) && !(o.kind === 'crate' && p.y > 1.1))      // already ducking/clearing it: save the snip
+    .sort((a, b) => b.box.z1 - a.box.z1)[0];
+  if (!o) return;
+  o.dead = true; world.remove(o.mesh); setScissors(scissors - 1);
+  const at = new THREE.Vector3((o.box.x0 + o.box.x1) / 2, 1, (o.box.z0 + o.box.z1) / 2);
+  sparkle(at, PAL.paper, 22); sparkle(at, '#ff9cc8', 10); sfx.snap(); flash = Math.max(flash, 0.15);
+  for (let i = 0; i < 10; i++) {   // little paper scraps flutter off
+    const s = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.leaf, color: '#efe6da', transparent: true, depthWrite: false })));
+    s.position.copy(at); s.scale.setScalar(0.25); scene.add(s); sparks.push({ s, v: new THREE.Vector3(rand(-3, 3), rand(1, 4), rand(-2, 2)), life: 0.6 });
+  }
+}
 const bandaidApi = { get: () => player.shield, add(n) { setBandaids(Math.min(MAX_BANDAIDS, player.shield + n)); }, max: MAX_BANDAIDS };
 
 // =================================================================== first-run tutorial: slow motion until you press the right key
@@ -395,7 +418,7 @@ function resetRun() {
   boss.reset(); shop.resetHeckle();
   clearWorld();
   player.lane = 1; player.x = 0; player.y = 0; player.vy = 0; player.z = 0; player.grounded = true; player.slideT = 0;
-  player.alive = true; player.falling = false; setBandaids(0); player.magnet = 0;
+  player.alive = true; player.falling = false; setBandaids(0); setScissors(0); player.magnet = 0;
   nextShopAt = 240; speed = 0; dist = 0; mothsGot = 0; mothPoints = 0; score = 0; combo = 0; comboT = 0; runT = 0; deadT = 0;
   genZ = 6;
   // a starting runway (longer on the first run, with the tutorial crates and laundry on it)
@@ -472,7 +495,7 @@ function leaveShop() {
   const b = $('banner'); b.innerHTML = 'Back to the roof!'; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1200);
 }
 const shop = createShop({
-  sfx, bgOnly, wallet: walletApi, bandaids: bandaidApi, onLeave: leaveShop,
+  sfx, bgOnly, wallet: walletApi, bandaids: bandaidApi, scissors: scissorsApi, onLeave: leaveShop,
   mainScene: scene, player, LANES, get speed() { return speed; },
   canHeckle: () => state === 'run' && player.alive && !boss.quiet(),
   // somewhere she can call lightning down: on a roof, not near a gap's edge, and clear of other obstacles
@@ -551,6 +574,7 @@ function hits(box, x, y, z, h) {
 }
 function updateWorld(dt) {
   const p = player; const h = p.slideT > 0 && p.grounded ? 0.75 : 1.5;
+  snipAhead();
   if (p.alive) for (const o of obstacles) {
     if (o.dead || Math.abs(o.box.z0 - p.z) > 3) continue;
     if (hits(o.box, p.x, p.y, p.z, h)) {
@@ -682,7 +706,7 @@ window.moths = {
   get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },
   set wallet(n) { wallet = walletShown = n; saveWallet(); showWallet(); },
   get shop() { return { open: shop.open_, busy: shop.busy, signs: signs.map((sg) => ({ lane: sg.lane, dz: +(player.z - sg.z).toFixed(1), used: sg.used })), nextAt: nextShopAt }; },
-  shopBuy() { shop.buy(); }, shopLeave() { shop.leave(); },
+  shopBuy(k) { shop.buy(k); }, set scissors(n) { setScissors(n); }, get scissors() { return scissors; }, shopLeave() { shop.leave(); },
   signAhead(dz = 14, lane = player.lane) {   // put a shop sign right ahead in the current lane (for testing)
     const z = player.z - dz;
     for (const o of [...obstacles]) if (Math.abs(o.box.z0 - z) < 6) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
@@ -709,7 +733,7 @@ window.moths = {
   nextObstacle() { return obstacles.filter((o) => !o.dead && o.box.z1 < player.z).sort((a, b) => b.box.z1 - a.box.z1)[0]; },
   set god(v) { setBandaids(v ? 99 : 0); },
   // tiny autopilot used for automated playtests
-  autopilot() {
+  autopilot(gapsOnly = false) {
     const p = player; if (!p.alive || state !== 'run') return;
     const ahead = obstacles.filter((o) => !o.dead && o.box.z1 < p.z + 0.3 && o.box.z1 > p.z - 7.5);
     const laneBlocked = (l, kinds) => ahead.some((o) => LANES[l] > o.box.x0 && LANES[l] < o.box.x1 && (!kinds || kinds.includes(o.kind)));
@@ -718,6 +742,7 @@ window.moths = {
     const near = ahead.filter((o) => p.x + 0.3 > o.box.x0 && p.x - 0.3 < o.box.x1).sort((a, b) => b.box.z1 - a.box.z1)[0];
     const edge = blocks.find((b) => p.z <= b.z0 && p.z >= b.z1);
     if (edge && p.grounded && p.z - edge.z1 < speed * 0.22) { act.jump(); return; }
+    if (gapsOnly) return;
     if (!near) return;
     const d = p.z - near.box.z1;
     if (near.kind === 'laundry') { if (d < speed * 0.35 && p.slideT <= 0) act.slide(); return; }

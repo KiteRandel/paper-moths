@@ -102,9 +102,10 @@
     .item .ic { font-size: 34px; text-align: center; }
     .item b { font-family: 'Shippori Mincho B1', serif; font-size: 18px; }
     .item small { display: block; font-size: 13px; opacity: .8; }
-    #buyBand { padding: 8px 14px; background: #c94f86; white-space: nowrap; }
-    #buyBand:hover { background: #a8386d; }
-    #buyBand.poor { background: var(--rose); }
+    .buy { padding: 8px 12px; background: #c94f86; white-space: nowrap; font-size: 16px; }
+    .buy:hover { background: #a8386d; }
+    .buy.poor { background: var(--rose); }
+    .item + .item { margin-top: 8px; }
     #leaveBtn { margin-top: 12px; width: 100%; }
     .shopPanel .hint { text-align: center; }
     @media (max-width: 600px) { #shopSay { top: 12%; font-size: 15px; } .shopPanel { left: 50%; transform: translateX(-50%); bottom: 70px; } .shopPanel .hint { display: none; } }
@@ -124,7 +125,7 @@
     </div>
     <div>
       <div class="paper sub">best <b id="best">0</b><button id="muteBtn" title="Music">♪</button></div>
-      <div class="powers"><span id="pShield" class="paper pw hidden">🩹 bandaid<b id="pShieldN"></b></span><span id="pMagnet" class="paper pw hidden">🎀 ribbon magnet</span></div>
+      <div class="powers"><span id="pShield" class="paper pw hidden">🩹 bandaid<b id="pShieldN"></b></span><span id="pSnip" class="paper pw hidden">✂️ scissors<b id="pSnipN"></b></span><span id="pMagnet" class="paper pw hidden">🎀 ribbon magnet</span></div>
     </div>
   </div>
   <div id="combo"></div>
@@ -166,9 +167,10 @@
     <div id="shopSay" class="paper">Welcome in!</div>
     <div class="shopPanel paper">
       <h2>Today&rsquo;s wares</h2>
-      <div class="item"><div class="ic">🩹</div><div><b>Bandaid</b><small>Blocks one hit. Carry up to 3.</small><small id="shopHave">You have 0 / 3</small></div><button id="buyBand">🦋 50</button></div>
+      <div class="item"><div class="ic">🩹</div><div><b>Bandaid</b><small>Blocks one hit. Carry up to 3.</small><small id="shopHave">You have 0 / 3</small></div><button id="buyBand" class="buy">🦋 3000</button></div>
+      <div class="item"><div class="ic">✂️</div><div><b>Paper Scissors</b><small>Snips away the next obstacle in your lane. Carry up to 3.</small><small id="shopHaveS">You have 0 / 3</small></div><button id="buySnip" class="buy">🦋 5000</button></div>
       <button id="leaveBtn">Back to the roof →</button>
-      <div class="hint"><kbd>Enter</kbd> buy · <kbd>Esc</kbd> or <kbd>Space</kbd> leave</div>
+      <div class="hint"><kbd>1</kbd> bandaid · <kbd>2</kbd> scissors · <kbd>Esc</kbd> leave</div>
     </div>
   </div>
   <div id="heckle" class="paper"></div>
@@ -182,6 +184,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=21"></script>
+  <script type="module" src="js/main.js?v=22"></script>
 </body>
 </html>

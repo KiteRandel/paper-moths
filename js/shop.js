@@ -1,7 +1,7 @@
 // The shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=21';
+import { PAL, T, toon } from './art.js?v=22';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const PINK = '#ff7fb6', PINK_SOFT = '#ffc2dc', PINK_DEEP = '#c94f86';
@@ -33,7 +33,7 @@ function signTexture(text, sub, w = 512, h = 220) {
 export function createShop(ctx) {
   // ctx: { renderer, ink, sfx, bgOnly, wallet: { get(), spend(n) }, bandaids: { get(), add(n), max }, onLeave() }
   const { sfx, bgOnly } = ctx;
-  const PRICE = { bandaid: 50 };
+  const PRICE = { bandaid: 3000, scissors: 5000 };
   const signTex = signTexture('SHOP', null, 512, 200);
   const mDark = toon({ color: PAL.umber }), mPink = toon({ color: PINK_SOFT, side: THREE.DoubleSide, emissive: new THREE.Color(PINK), emissiveIntensity: 0.25 });
   const mHem = toon({ color: PINK_DEEP, side: THREE.DoubleSide });
@@ -109,18 +109,32 @@ export function createShop(ctx) {
     const str = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 1.4, 4), mDark); str.position.set(x, 5.1, -1.2); scene.add(str);
     const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffc0d8', transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.6); gl.position.copy(l.position); scene.add(gl);
   }
-  // the counter, with a bandaid on display
+  // the counter, with a bandaid and a pair of scissors on display
   const counter = new THREE.Group(); counter.position.set(0, 0, -0.75); scene.add(counter);
   const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.95, 0.8), mWood); body.position.y = 0.475; counter.add(body);
   const top = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.08, 0.95), mCream); top.position.y = 0.99; counter.add(top);
   const front = new THREE.Mesh(new THREE.BoxGeometry(3.62, 0.22, 0.02), toon({ color: '#e7a9c0' })); front.position.set(0, 0.72, 0.41); counter.add(front);
-  const display = new THREE.Group(); display.position.set(0.95, 1.22, 0.1); counter.add(display);
+  const display = new THREE.Group(); display.position.set(0.55, 1.22, 0.1); counter.add(display);
   { // a fat bandage roll with a tail, like the pickups on the roof
     const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.2, 18), mPaper); roll.rotation.z = Math.PI / 2; display.add(roll);
     const core = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.21, 10), mTan); core.rotation.z = Math.PI / 2; display.add(core);
     const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); display.add(gl);
   }
-  const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.2), new THREE.MeshBasicMaterial({ map: signTexture('50', null, 200, 96), transparent: true })); tag.position.set(0.95, 1.06, 0.5); tag.rotation.x = -0.5; counter.add(tag);
+  const snips = new THREE.Group(); snips.position.set(1.35, 1.24, 0.1); counter.add(snips);
+  { // paper scissors: two silver blades crossed in an X, with pink finger loops
+    const blade = toon({ color: '#e4e4ec', emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.15 }), loop = toon({ color: PINK, emissive: new THREE.Color(PINK), emissiveIntensity: 0.2 });
+    for (const sgn of [-1, 1]) {
+      const arm = new THREE.Group(); arm.rotation.z = sgn * 0.32; snips.add(arm);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.36, 0.02), blade); b.position.y = 0.16; arm.add(b);
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.08, 4), blade); tip.position.y = 0.38; arm.add(tip);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.022, 6, 16), loop); ring.position.set(sgn * 0.02, -0.1, 0); arm.add(ring);
+    }
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8), mDark); pin.rotation.x = Math.PI / 2; pin.position.y = -0.02; snips.add(pin);
+    const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffd6e6', transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); snips.add(gl);
+  }
+  for (const [txt, x] of [['3000', 0.55], ['5000', 1.35]]) {
+    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.2), new THREE.MeshBasicMaterial({ map: signTexture(txt, null, 230, 96), transparent: true })); tag.position.set(x, 1.06, 0.5); tag.rotation.x = -0.5; counter.add(tag);
+  }
   // a little bell and a sleepy plant on the counter
   const bell = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), toon({ color: PAL.ember })); bell.position.set(-1.2, 1.03, 0.15); counter.add(bell);
   const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.2, 10), toon({ color: PAL.rose })); pot.position.set(-1.55, 1.13, -0.05); counter.add(pot);
@@ -315,13 +329,14 @@ export function createShop(ctx) {
 
   // ---------------------------------------------------------------- UI + flow
   const $ = (id) => document.getElementById(id);
-  const ui = { root: $('shop'), say: $('shopSay'), have: $('shopHave'), buy: $('buyBand'), leave: $('leaveBtn'), fade: $('fade') };
+  const ui = { root: $('shop'), say: $('shopSay'), have: { bandaid: $('shopHave'), scissors: $('shopHaveS') }, buy: { bandaid: $('buyBand'), scissors: $('buySnip') }, leave: $('leaveBtn'), fade: $('fade') };
   const S = { open: false, t: 0, busy: false };
   const LINES = {
     hello: ['Welcome in! Mind the moth dust.', 'Oh, a customer! Come in, come in.', 'You look like you could use a bandaid.', 'Back again? I saved you the good ones.'],
     bought: ['Thank you~ stay safe up there!', 'One bandaid, wrapped with love.', 'That one’s extra sticky. Good luck!', 'Pleasure doing business!'],
     broke: ['Hmm, you’ll need a few more moths for that.', 'Come back with more moths, sweet pea!', 'Not quite enough moths yet…'],
-    full: ['You can only carry three, silly!', 'Your pockets are full of bandaids already!'],
+    full: ['You can only carry three, silly!', 'Your pockets are full already!'],
+    snipped: ['Snip snip! Nothing can stop you now.', 'My sharpest pair, just for you~', 'They’ll cut through anything. Probably.', 'Ooh, big spender!'],
     bye: ['Bye bye! Don’t trip!', 'See you on the rooftops!'],
   };
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -330,19 +345,24 @@ export function createShop(ctx) {
     ui.say.textContent = pick(LINES[kind]); ui.say.classList.remove('pop'); void ui.say.offsetWidth; ui.say.classList.add('pop');
     clearTimeout(sayT);
   }
+  const ITEMS = { bandaid: { stock: () => ctx.bandaids, show: () => display, line: 'bought' }, scissors: { stock: () => ctx.scissors, show: () => snips, line: 'snipped' } };
   function refresh() {
-    const n = ctx.bandaids.get(), have = ctx.wallet.get();
-    ui.have.textContent = `You have ${n} / ${ctx.bandaids.max}`;
-    ui.buy.disabled = n >= ctx.bandaids.max || have < PRICE.bandaid;
-    ui.buy.classList.toggle('poor', have < PRICE.bandaid);
+    const have = ctx.wallet.get();
+    for (const k of Object.keys(ITEMS)) {
+      const st = ITEMS[k].stock(), n = st.get();
+      ui.have[k].textContent = `You have ${n} / ${st.max}`;
+      ui.buy[k].disabled = n >= st.max || have < PRICE[k];
+      ui.buy[k].classList.toggle('poor', have < PRICE[k]);
+    }
   }
-  function buy() {
+  function buy(kind = 'bandaid') {
     if (!S.open || S.busy) return;
-    if (ctx.bandaids.get() >= ctx.bandaids.max) { say('full'); sfx.offKey(); return; }
-    if (!ctx.wallet.spend(PRICE.bandaid)) { say('broke'); sfx.offKey(); anim(P.keeper, 'Idle'); return; }
-    ctx.bandaids.add(1); sfx.power(); say('bought');
+    const it = ITEMS[kind], st = it.stock();
+    if (st.get() >= st.max) { say('full'); sfx.offKey(); return; }
+    if (!ctx.wallet.spend(PRICE[kind])) { say('broke'); sfx.offKey(); anim(P.keeper, 'Idle'); return; }
+    st.add(1); sfx.power(); if (kind === 'scissors') sfx.snap(); say(it.line);
     anim(P.keeper, 'Clap', { once: true, after: 'Idle' });
-    display.scale.setScalar(1.35);
+    it.show().scale.setScalar(1.35);
     refresh();
   }
   function open() {
@@ -365,12 +385,14 @@ export function createShop(ctx) {
       }, 380);
     }, 450);
   }
-  ui.buy.addEventListener('click', buy);
+  ui.buy.bandaid.addEventListener('click', () => buy('bandaid'));
+  ui.buy.scissors.addEventListener('click', () => buy('scissors'));
   ui.leave.addEventListener('click', leave);
   addEventListener('keydown', (e) => {
     if (!S.open) return;
     const k = e.key.toLowerCase();
-    if (k === 'enter' || k === 'b') { e.preventDefault(); buy(); }
+    if (k === '1' || k === 'enter') { e.preventDefault(); buy('bandaid'); }
+    else if (k === '2') { e.preventDefault(); buy('scissors'); }
     else if (k === 'escape' || k === 'arrowup' || k === 'w' || k === ' ') { e.preventDefault(); leave(); }
   });
 
@@ -378,6 +400,7 @@ export function createShop(ctx) {
     S.t += dt;
     for (const m of P.mixers) m.update(dt);
     display.rotation.y += dt * 1.5; display.position.y = 1.22 + Math.sin(S.t * 2.5) * 0.04; display.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, dt * 6));
+    snips.rotation.y -= dt * 1.2; snips.position.y = 1.24 + Math.sin(S.t * 2.5 + 1.5) * 0.04; snips.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, dt * 6));
     lanterns.forEach((l, i) => { l.rotation.z = Math.sin(S.t * 1.3 + i) * 0.06; });
     // a slow, gentle drift of the camera
     camera.position.set(0.45 + Math.sin(S.t * 0.25) * 0.2, 1.75, 3.3);
