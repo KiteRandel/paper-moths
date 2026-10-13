@@ -1,6 +1,6 @@
 // Music box + soft effects, synthesized live. Made by KiteRandel.
 let ctx, master, music, delay, nextT = 0, step = 0, playing = false;
-let bossEl = null, bossGain = null, bossOn = false, bossStopT = null;   // boss theme (a streamed mp3)
+let bossBuf = null, bossSrc = null, bossGain = null, bossOn = false, bossStopT = null;   // boss theme, decoded into Web Audio
 export const snd = { muted: false };
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -11,25 +11,33 @@ export function initAudio() {
   const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
   music.connect(master); music.connect(delay); delay.connect(lp).connect(fb).connect(delay); lp.connect(master);
   // the boss theme streams from a file and plays through its own fader
-  bossEl = new Audio('assets/boss-theme.mp3'); bossEl.loop = true; bossEl.preload = 'auto'; bossEl.crossOrigin = 'anonymous';
+  // decoded into the same audio graph as everything else, so browsers that block media autoplay (like Brave) still play it
   bossGain = ctx.createGain(); bossGain.gain.value = 0; bossGain.connect(master);
-  try { ctx.createMediaElementSource(bossEl).connect(bossGain); } catch (e) { bossGain = null; }
+  fetch('assets/boss-theme.mp3?v=2').then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((buf) => {
+    bossBuf = buf; if (bossOn && !bossSrc) startBossSource();
+  }).catch((e) => console.warn('boss theme failed to load', e));
 }
+function startBossSource() {
+  if (!bossBuf || bossSrc) return;
+  bossSrc = ctx.createBufferSource(); bossSrc.buffer = bossBuf; bossSrc.loop = true; bossSrc.connect(bossGain); bossSrc.start();
+}
+function stopBossSource() { if (bossSrc) { try { bossSrc.stop(); } catch (e) { /* already stopped */ } bossSrc.disconnect(); bossSrc = null; } }
 const BOSS_VOL = 0.75;
-export function bossMusicState() { return { on: bossOn, paused: bossEl ? bossEl.paused : null, gain: bossGain ? +bossGain.gain.value.toFixed(2) : null, waltz: music ? +music.gain.value.toFixed(2) : null, time: bossEl ? +bossEl.currentTime.toFixed(1) : null }; }
+export function bossMusicState() { return { on: bossOn, loaded: !!bossBuf, playing: !!bossSrc, gain: bossGain ? +bossGain.gain.value.toFixed(2) : null, waltz: music ? +music.gain.value.toFixed(2) : null, ctx: ctx ? ctx.state : null }; }
 // fade the boss theme in (and the music box out) when a fight starts, and back again when it ends
 export function setBossMusic(on) {
-  if (!ctx || !bossEl || !bossGain || on === bossOn) return;
+  if (!ctx || !bossGain || on === bossOn) return;
+  if (ctx.state === 'suspended') ctx.resume();
   bossOn = on; const t = ctx.currentTime;
   clearTimeout(bossStopT);
   bossGain.gain.cancelScheduledValues(t); bossGain.gain.setValueAtTime(bossGain.gain.value, t);
   if (on) {
-    if (bossEl.paused) { bossEl.currentTime = 0; bossEl.play().catch(() => {}); }
+    startBossSource();   // if it's still decoding, it starts as soon as it's ready
     bossGain.gain.linearRampToValueAtTime(snd.muted ? 0 : BOSS_VOL, t + 2.5);
     music.gain.setTargetAtTime(0, t, 0.6);
   } else {
     bossGain.gain.linearRampToValueAtTime(0, t + 3);
-    bossStopT = setTimeout(() => { if (!bossOn) bossEl.pause(); }, 3200);
+    bossStopT = setTimeout(() => { if (!bossOn) stopBossSource(); }, 3200);
     music.gain.setTargetAtTime(playing && !snd.muted ? 1 : 0, t + 1.2, 0.8);
   }
 }
