@@ -28,7 +28,7 @@ const GUIDES = {
     steps: [
       { img: 'prism_1', title: 'With their powers combined', text: 'They spin in a wheel and fuse together. Enjoy the light show.' },
       { img: 'prism_2', title: 'Knock the ball back', text: 'She throws a glowing ball at you. A <b>white ring</b> shrinks around your feet: jump the moment it <b class="y">turns gold</b> and you\u2019ll be at the top of your jump when the ball arrives, knocking it straight back.' },
-      { img: 'prism_3', title: 'Win the rally', text: 'She returns it faster every time. Keep the rally going long enough and she finally misses. Get hit and the rally starts over.' },
+      { img: 'prism_3', title: 'Win the rally', text: 'She returns it faster every time, and between returns she borrows the other bosses\u2019 attacks, in the order you met them. Keep the rally going long enough and she finally misses. Get hit by the ball and the rally starts over.' },
     ],
     win: 'Win <b>3 rallies</b> to scatter her colours. Each one is longer and faster than the last.',
   },

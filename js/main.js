@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=33';
-import { InkPass } from './post.js?v=33';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=33';
-import { createBosses } from './boss.js?v=33';
-import { createShop } from './shop.js?v=33';
-import { createBrief } from './brief.js?v=33';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=34';
+import { InkPass } from './post.js?v=34';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=34';
+import { createBosses } from './boss.js?v=34';
+import { createShop } from './shop.js?v=34';
+import { createBrief } from './brief.js?v=34';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -515,7 +515,7 @@ const shop = createShop({
 });
 
 // =================================================================== input
-const act = { left() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
+const act = { left() { if (tut.waiting || brief.on || boss.laneLocked()) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting || brief.on || boss.laneLocked()) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
   jump() { if (tut.waiting === 'slide' || brief.on) return; if (boss.onJump()) return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
   slide() { if (tut.waiting === 'jump' || brief.on) return; boss.noteAction(); if (tut.waiting === 'slide') { tut.slid = true; tutResolve(); } if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
 // =================================================================== test shortcut: type 3-7-9-7 to jump straight to the chess boss
