@@ -3,7 +3,8 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=36';
+import { T } from './art.js?v=37';
+import { makeSpikes, riseSpikes } from './chess.js?v=37';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -289,11 +290,11 @@ export function createPrism(h) {
         const isHot = (l + r) % 2 === side, col = isHot ? (side === 0 ? '#e8a92a' : '#4a2a6a') : (side === 0 ? '#3a3036' : '#efe6da');
         const m = new THREE.Mesh(new THREE.PlaneGeometry(1.66, ROW - 0.1), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isHot ? 0.85 : 0.55, depthWrite: false }));
         m.rotation.x = -Math.PI / 2; m.position.set(LANES[l], 0.05, z0 - (r + 0.5) * ROW); m.layers.set(1); h.scene.add(m); meshes.push(m);
-        if (isHot) hot.push({ l, r, m });
+        if (isHot) { const sp = makeSpikes(); sp.visible = true; sp.setSide(side); sp.position.set(LANES[l], 0.06, z0 - (r + 0.5) * ROW); h.scene.add(sp); meshes.push(sp); hot.push({ l, r, m, sp }); }
       }
       const hurtRows = new Set(); let t = 0;
       addFx({ meshes, update(dt) {
-        t += dt; for (const q of hot) q.m.material.opacity = 0.7 + Math.sin(t * 9) * 0.2;
+        t += dt; for (const q of hot) { q.m.material.opacity = 0.7 + Math.sin(t * 9) * 0.2; riseSpikes(q.sp, t * 3.5, t); }
         const p = player, into = z0 - p.z, r = Math.floor(into / ROW), within = into - r * ROW;
         if (r >= 0 && r < rows && !hurtRows.has(r) && p.grounded && p.y < 0.3 && within > 1.4 && within < ROW - 1.4) {
           const lane = [0, 1, 2].find((l) => Math.abs(p.x - LANES[l]) < 0.55);

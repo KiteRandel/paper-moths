@@ -2,11 +2,29 @@
 // she drops a chess piece that attacks the way it moves, and then it's your move: follow the knight's path and
 // capture their king. Made by KiteRandel.
 import * as THREE from 'three';
-import { PAL, T, toon } from './art.js?v=36';
+import { PAL, T, toon } from './art.js?v=37';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const IVORY = '#fff1cf', ONYX = '#6b5a86';
 export const ROW = 8;   // length of one board square along the roof
+
+// a bed of spikes for a square that hurts right now (only over the part that hurts: the seams stay clear)
+let spikeGeo = null, spikeMats = null;
+export function makeSpikes() {
+  if (!spikeGeo) {
+    const parts = [];
+    for (let j = 0; j < 6; j++) for (let i = 0; i < 3; i++) {
+      const c = new THREE.ConeGeometry(0.12, 0.55, 6); c.translate(-0.52 + i * 0.52 + (j % 2 ? 0.14 : -0.14), 0.275, -2.45 + j * 0.98); parts.push(c);
+    }
+    spikeGeo = mergeGeometries(parts);
+    spikeMats = [toon({ color: '#f2b843', emissive: new THREE.Color('#ffcf33'), emissiveIntensity: 0.35 }), toon({ color: '#5a3584', emissive: new THREE.Color('#9a5fe0'), emissiveIntensity: 0.45 })];
+  }
+  const m = new THREE.Mesh(spikeGeo, spikeMats[0]); m.visible = false; m.scale.y = 0.05; m.userData = { t0: 0 };
+  m.setSide = (side) => { m.material = spikeMats[side]; };
+  return m;
+}
+export function riseSpikes(m, k, t) { const r = Math.min(1, Math.max(0, k)); m.scale.set(1, 0.05 + r * (0.95 + Math.sin(t * 10 + m.position.x) * 0.06), 1); }
 
 // ---------------------------------------------------------------- chess pieces, turned on a lathe like little paper-and-ink sculptures
 function lathe(profile, mat, seg = 20) { return new THREE.Mesh(new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), seg), mat); }
@@ -84,12 +102,13 @@ export function createChess(h) {
   // ---------------------------------------------------------------- the board
   function addRow(r) {
     const g = new THREE.Group(); g.position.z = rowMid(r);
-    const sq = [], hot = [];
+    const sq = [], hot = [], spikes = [];
     for (let l = 0; l < 3; l++) {
       const m = new THREE.Mesh(sqGeo, baseMat[colorOf(l, r)]); m.rotation.x = -Math.PI / 2; m.position.set(LANES[l], 0.012, 0); m.layers.set(1); g.add(m); sq.push(m);
       const o = new THREE.Mesh(sqGeo, hotMat[0]); o.rotation.x = -Math.PI / 2; o.position.set(LANES[l], 0.03, 0); o.visible = false; o.layers.set(1); g.add(o); hot.push(o);
+      const sp = makeSpikes(); sp.position.set(LANES[l], 0.02, 0); g.add(sp); spikes.push(sp);
     }
-    world.add(g); C.rows.set(r, { g, sq, hot, side: null, hurt: false });
+    world.add(g); C.rows.set(r, { g, sq, hot, spikes, side: null, hurt: false });
   }
   function recolor() { for (const [r, row] of C.rows) row.sq.forEach((m, l) => { m.material = baseMat[colorOf(l, r)]; }); }
   function updateBoard(t) {
@@ -98,8 +117,12 @@ export function createChess(h) {
     for (const [r, row] of C.rows) {
       if (r < pr - 3) { world.remove(row.g); C.rows.delete(r); continue; }
       row.hot.forEach((o, l) => {
-        o.visible = row.side !== null && colorOf(l, r) === row.side;
-        if (o.visible) { o.material = hotMat[row.side]; }
+        const on = row.side !== null && colorOf(l, r) === row.side;
+        o.visible = on; if (on) o.material = hotMat[row.side];
+        const sp = row.spikes[l];
+        if (on && !sp.visible) { sp.visible = true; sp.setSide(row.side); sp.userData.t0 = t; }
+        if (!on) sp.visible = false;
+        if (on) riseSpikes(sp, (t - sp.userData.t0) * 3.5, t);
       });
     }
     hotMat[0].opacity = 0.7 + Math.sin(t * 9) * 0.2; hotMat[1].opacity = 0.7 + Math.sin(t * 9) * 0.2;
