@@ -1,9 +1,9 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=35';
-import { createChess } from './chess.js?v=35';
-import { createPrism } from './prism.js?v=35';
+import { PAL, T, toon } from './art.js?v=36';
+import { createChess } from './chess.js?v=36';
+import { createPrism } from './prism.js?v=36';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -46,11 +46,11 @@ export function createBosses(ctx) {
     name: (txt) => { ui.name.textContent = txt; }, hitBoss: () => hitBoss(), isFight: () => st.mode === 'fight' && st.kind === 'chess', anim: (b, n, o) => anim(b, n, o),
   });
   const prism = createPrism({
-    world, player, LANES, sfx, get speed() { return ctx.speed; },
+    player, LANES, sfx, get speed() { return ctx.speed; },
     hurt: (m) => ctx.hurt(m), fx: (a, b) => ctx.fx(a, b), after: (s2, fn) => after(s2, fn), banner: (a, b, c) => banner(a, b, c),
     name: (txt) => { ui.name.textContent = txt; }, hitBoss: () => hitBoss(), isFight: () => st.mode === 'fight' && st.kind === 'prism', anim: (b, n, o) => anim(b, n, o),
     addObstacle: (k, l, z) => ctx.addObstacle?.(k, l, z),
-    scene, get waveTex() { return waveTex; }, makeHole: (l, z, f) => makeHole(l, z, f), lastAct: () => lastAct, now: () => st.t, noteSprite: (sz) => noteSprite(sz),
+    scene, world, get waveTex() { return waveTex; }, makeHole: (l, z, f) => makeHole(l, z, f), lastAct: () => lastAct, now: () => st.t, noteSprite: (sz) => noteSprite(sz),
   });
   function init(gltf) {
     B.tmpl = gltf;
@@ -845,6 +845,7 @@ export function createBosses(ctx) {
     debugCrater(lane, dz, fire) { makeHole(lane, player.z - dz, fire); },
     debugPromote() { chess.debugPromote(); },
     debugPrismAttack(k) { return prism.debugAttack(k); },
+    debugPrismFinal(hh) { prism.debugFinal(hh); },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
     // test hook: pretend some bosses were already beaten and the next one is due now
     skipTo(beaten) { st.beaten = beaten; st.nextAt = ctx.dist + 150; },

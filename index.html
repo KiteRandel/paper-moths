@@ -92,6 +92,19 @@
     #heckle.on { opacity: 1; }
     #heckle::after { content: ''; position: absolute; left: 50%; bottom: -11px; width: 16px; height: 16px; background: var(--paper); border-right: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
     body.shopping #heckle { display: none; }
+    /* Neon Amara's last stage: the edges of the screen burn with neon */
+    #neonFx { position: fixed; inset: 0; pointer-events: none; z-index: 3; opacity: 0; transition: opacity .8s; --heat: 0; }
+    #neonFx.on { opacity: 1; }
+    #neonFx .rim { position: absolute; inset: 0; border: calc(5px + var(--heat) * 9px) solid; border-image: linear-gradient(120deg, #ff3b6b, #ffcf33, #3fd45a, #3fb8ff, #9a5fe0, #ff3b6b) 1; filter: blur(calc(2px + var(--heat) * 3px)) saturate(1.6); animation: neonHue 1.6s linear infinite; }
+    #neonFx .glow { position: absolute; inset: 0; box-shadow: inset 0 0 calc(50px + var(--heat) * 110px) calc(4px + var(--heat) * 16px) rgba(255, 90, 200, .45), inset 0 0 calc(20px + var(--heat) * 40px) rgba(80, 220, 255, .45); animation: neonHue 2.4s linear infinite reverse, neonPulse .45s ease-in-out infinite alternate; mix-blend-mode: screen; }
+    #neonFx .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 2px, transparent 2px 5px); opacity: calc(.3 + var(--heat) * .5); animation: neonScan .25s steps(2) infinite; }
+    #neonFx .streaks { position: absolute; inset: -20%; background: repeating-conic-gradient(from 0deg at 50% 45%, rgba(255,255,255,.0) 0deg 7deg, rgba(255,255,255,calc(.03 + var(--heat) * .07)) 7deg 8deg); -webkit-mask: radial-gradient(circle at 50% 45%, transparent 32%, #000 70%); mask: radial-gradient(circle at 50% 45%, transparent 32%, #000 70%); animation: neonSpin 6s linear infinite; }
+    #neonFx.kick .glow { animation: neonHue 2.4s linear infinite reverse, neonKick .35s ease-out; }
+    @keyframes neonHue { to { filter: hue-rotate(360deg) blur(3px) saturate(1.6); } }
+    @keyframes neonPulse { from { opacity: .65; } to { opacity: 1; } }
+    @keyframes neonKick { 0% { opacity: 1; transform: scale(1.04); } 100% { opacity: .8; transform: scale(1); } }
+    @keyframes neonScan { 50% { transform: translateY(2px); } }
+    @keyframes neonSpin { to { transform: rotate(360deg); } }
     #fade { position: fixed; inset: 0; background: #efe6da; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 8; }
     #fade.on { opacity: 1; }
     #shop { position: fixed; inset: 0; pointer-events: none; }
@@ -223,6 +236,7 @@
     <div class="bSteps"></div>
     <div class="bFoot"><div class="bWin"></div><button class="bGo"><span>Press</span><kbd>Space</kbd><span class="bGoText">twice to start the fight</span><span class="bDots"><i></i><i></i></span></button></div>
   </div></div>
+  <div id="neonFx"><div class="streaks"></div><div class="glow"></div><div class="scan"></div><div class="rim"></div></div>
   <div id="fade"></div>
 
   <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
@@ -233,6 +247,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=35"></script>
+  <script type="module" src="js/main.js?v=36"></script>
 </body>
 </html>

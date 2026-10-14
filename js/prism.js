@@ -3,7 +3,7 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=35';
+import { T } from './art.js?v=36';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -74,7 +74,7 @@ export function createPrism(h) {
       P.neon.g.visible = true; P.neon.g.scale.setScalar(0.2); h.anim(P.neon, 'Fly');
       h.fx(0.9, 0.6); sfx.bossIntro();
       h.banner('Neon Amara', 'jump when the ring closes to knock her ball back', 2.6);
-      h.after(2.8, () => { if (h.isFight()) throwBall(); });
+      h.after(2.8, () => { if (h.isFight()) opener(); });
     });
   }
 
@@ -103,6 +103,7 @@ export function createPrism(h) {
       P.ring.material.color.set(s < 0.05 ? '#ffd84a' : '#ffffff'); P.ring.material.opacity = 0.5 + (1 - s) * 0.5;
       if (k >= 1) {
         if (p.alive && p.y > 1.0) {             // knocked it back!
+          if (P.locked && neonEl) { neonEl.style.setProperty('--heat', Math.min(1, (P.count + 1) / 7)); neonEl.classList.remove('kick'); void neonEl.offsetWidth; neonEl.classList.add('kick'); }
           P.count++; B.dir = 'out'; B.t = 0; B.T = Math.max(0.42, 0.75 * Math.pow(0.9, P.count)); B.from = pos.clone().sub(me());
           sfx.bossHit(); h.fx(0.18, 0.15); P.ring.visible = false; setName();
         } else {                                // it hit her
@@ -123,8 +124,8 @@ export function createPrism(h) {
           h.hitBoss();
         } else {
           sfx.dodge();
-          const list = ATTACKS[P.stage];
-          if (list.length) { const kind = list[(P.count - 1) % list.length]; P.attack = { kind, t: performance.now() }; const dur = ATTACK[kind](); h.after(dur, throwBall); }
+          const list = COMBOS[P.stage][P.count];
+          if (list) combo(list, throwBall);
           else h.after(0.22, throwBall);
         }
         if (P.ball === null && P.count < NEED[P.stage]) P.ballMesh.visible = true;
@@ -140,7 +141,22 @@ export function createPrism(h) {
     P.shadow.visible = true; P.shadow.position.set(pos.x, 0.04, pos.z); P.shadow.scale.setScalar(Math.max(0.4, 1.4 - pos.y * 0.2));
   }
   // ---------------------------------------------------------------- borrowed attacks, in boss order
-  const ATTACKS = [['twins', 'wrath'], ['glitch', 'chess'], []];
+  const COMBOS = [
+    [['twins', 'wrath'], ['wrath', 'split'], ['split', 'wrath']],                                            // stage 1: the Twin Lanterns and Wrath
+    [['glitch', 'chess'], ['rook', 'glitch'], ['chess', 'rook'], ['glitch', 'chess'], ['rook', 'glitch']],  // stage 2: Lilac & Glitch, Ivory & Onyx
+    [],
+  ];
+  function combo(list, then) {
+    let i = 0;
+    const next = () => {
+      if (!h.isFight() || P.phase !== 'fused') return;
+      if (i >= list.length) { then(); return; }
+      const k = list[i++]; P.attack = { kind: k }; const dur = ATTACK[k]();
+      h.after(i < list.length ? dur * 0.8 : dur, next);
+    };
+    next();
+  }
+  const opener = () => { const c = COMBOS[P.stage][0]; if (c) combo(c, throwBall); else throwBall(); };
   const fx = [];   // little self-updating effects: { update(dt) -> keep?, meshes }
   function addFx(o) { fx.push(o); return o; }
   function killFx(o) { for (const m of o.meshes) (m.parent || h.scene).remove(m); fx.splice(fx.indexOf(o), 1); }
@@ -163,6 +179,56 @@ export function createPrism(h) {
         return true;
       } });
       return T2 + 0.45;
+    },
+    // the twins, split: blue over one or two lanes, orange over the rest
+    split() {
+      const blueLeft = Math.random() < 0.5, nBlue = Math.random() < 0.5 ? 1 : 2;
+      const edge = blueLeft ? (nBlue === 1 ? -0.85 : 0.85) : (nBlue === 1 ? 0.85 : -0.85);
+      const blueLanes = [0, 1, 2].filter((l) => (blueLeft ? LANES[l] < edge : LANES[l] > edge));
+      const g = new THREE.Group();
+      for (const c of ['blue', 'orange']) {
+        const left = (c === 'blue') === blueLeft, x0 = left ? -3.7 : edge, x1 = left ? edge : 3.7, hgt = c === 'blue' ? 3.1 : 2.2, y0 = c === 'blue' ? 0 : 0.95;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, hgt), new THREE.MeshBasicMaterial({ map: h.waveTex[c], transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
+        m.position.set((x0 + x1) / 2, y0 + hgt / 2, 0); m.layers.set(1); g.add(m);
+      }
+      const seam = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 3.2), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, depthWrite: false })); seam.position.set(edge, 1.6, 0.02); seam.layers.set(1); g.add(seam);
+      h.scene.add(g); flashAura('#c97ab0'); sfx.wave(0); sfx.wave(1);
+      h.banner('Split wave!', 'blue side: keep running \u00b7 orange side: slide', 1.0);
+      let t = 0; const T2 = 1.8;
+      addFx({ meshes: [g], update(dt) {
+        t += dt; const k = t / T2; g.position.set(0, 0, player.z - 16 * (1 - k));
+        if (k >= 1) {
+          const p = player, lane = [0, 1, 2].reduce((a, l) => (Math.abs(p.x - LANES[l]) < Math.abs(p.x - LANES[a]) ? l : a), 0);
+          const blue = blueLanes.includes(lane), still = h.now() - h.lastAct() > 0.45 && p.grounded && p.slideT <= 0, ducked = p.slideT > 0 && p.y < 0.5;
+          if (blue ? still : ducked) sfx.dodge(); else h.hurt(blue ? 'You moved in the blue wave!' : 'Slide under orange waves!');
+          return false;
+        }
+        return true;
+      } });
+      return T2 + 0.45;
+    },
+    // Ivory & Onyx: a rook slides straight down your lane
+    rook() {
+      const white = Math.random() < 0.5, lane = player.lane, z = player.z - (h.speed * 1.7 + 12);
+      flashAura(white ? '#ffd98a' : '#6b5a86'); sfx.crackWarn(); h.banner('Rook!', 'it slides down your lane, switch!', 0.9);
+      const mat = new THREE.MeshToonMaterial({ color: white ? '#efe6da' : '#3a3036' });
+      const rk = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 1.9, 18), mat); body.position.y = 0.95; rk.add(body);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.5, 0.35, 18), mat); top.position.y = 2.05; rk.add(top);
+      for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), mat); const a = i * Math.PI / 2 + 0.78; b.position.set(Math.cos(a) * 0.4, 2.33, Math.sin(a) * 0.4); rk.add(b); }
+      rk.position.set(LANES[lane], 7, z); rk.scale.setScalar(1.15); h.world.add(rk);
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 1), new THREE.MeshBasicMaterial({ color: white ? '#fff1cf' : '#a88ad8', transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+      strip.rotation.x = -Math.PI / 2; strip.layers.set(1); h.scene.add(strip);
+      let t = 0, rz = z, hurt = false;
+      addFx({ meshes: [rk, strip], update(dt) {
+        t += dt;
+        if (t < 0.6) { rk.position.y = 7 - (t / 0.6) * 7; } else { rk.position.y = 0; rz += 5.5 * dt; }
+        rk.position.z = rz;
+        const len = Math.max(0.5, player.z - rz); strip.scale.y = len; strip.position.set(LANES[lane], 0.06, rz + len / 2); strip.material.opacity = t < 0.8 ? 0.7 : 0.25;
+        if (!hurt && t > 0.6 && Math.abs(player.x - LANES[lane]) < 0.7 && Math.abs(player.z - rz) < 0.7 && player.y < 2.4) { hurt = true; h.hurt('Flattened by a rook!'); }
+        return rz < player.z + 4;
+      } });
+      return 0.6 + (player.z - z) / (h.speed + 5.5) + 0.2;
     },
     // Wrath: red cracks flash, then she smashes craters (sometimes a pillar of fire)
     wrath() {
@@ -249,16 +315,19 @@ export function createPrism(h) {
       const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.05, 8, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); cuff.rotation.x = Math.PI / 2; cuff.position.y = 0.15; cuff.layers.set(1); chains.add(cuff);
       h.scene.add(chains);
     }
-    player.lane = 1; P.locked = true; chains.visible = true;
+    player.lane = 1; P.locked = true; chains.visible = true; neonFx(true);
     h.banner('Chained!', 'no more dodging: just hit it back 7 times', 2.0); sfx.snap(); h.fx(0.35, 0.3);
   }
-  function unchain() { P.locked = false; chains.visible = false; }
+  function unchain() { P.locked = false; chains.visible = false; neonFx(false); }
+  const neonEl = document.getElementById('neonFx');
+  function neonFx(on) { if (!neonEl) return; neonEl.classList.toggle('on', on); if (!on) neonEl.style.setProperty('--heat', 0); }
+  function afterHitReset() { if (neonEl) neonEl.style.setProperty('--heat', 0); }
   function afterHit(hp) {
     P.stage = Math.min(2, P.stage + 1); P.count = 0;
     h.anim(P.neon, 'Hit', { once: true, after: 'Fly', fade: 0.1 });
     if (hp > 0) {
       h.after(1.8, () => { if (!h.isFight()) return; if (P.stage === 2) chainUp(); else h.banner('Stage 2', 'keep the rally going for 5', 1.8); setName(); });
-      h.after(3.6, () => { if (h.isFight()) throwBall(); });
+      h.after(3.6, () => { if (h.isFight()) (P.stage === 2 ? throwBall : opener)(); });
     }
   }
   function defeated() {   // she splits back into all of them, and they drift away
@@ -297,6 +366,7 @@ export function createPrism(h) {
   return {
     init, begin, start, update, afterHit, defeated, clear,
     debugAttack(k) { return ATTACK[k](); },
+    debugFinal(heat = 0.8) { P.stage = 2; P.count = 0; chainUp(); if (neonEl) neonEl.style.setProperty('--heat', heat); },
     get group() { return P.g; }, get locked() { return !!P.locked; },
     get state() { return P.on ? { attack: P.attack ? P.attack.kind : null, fxN: fx.length, locked: !!P.locked, phase: P.phase, stage: P.stage, count: P.count, need: NEED[P.stage], ball: P.ball ? { dir: P.ball.dir, left: +(P.ball.T - P.ball.t).toFixed(2), T: +P.ball.T.toFixed(2) } : null } : null; },
   };
