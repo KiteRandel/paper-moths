@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=39';
-import { InkPass } from './post.js?v=39';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=39';
-import { createBosses } from './boss.js?v=39';
-import { createShop } from './shop.js?v=39';
-import { createBrief } from './brief.js?v=39';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=40';
+import { InkPass } from './post.js?v=40';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=40';
+import { createBosses } from './boss.js?v=40';
+import { createShop } from './shop.js?v=40';
+import { createBrief } from './brief.js?v=40';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

@@ -3,8 +3,8 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=39';
-import { makeSpikes, riseSpikes } from './chess.js?v=39';
+import { T } from './art.js?v=40';
+import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=40';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -88,6 +88,7 @@ export function createPrism(h) {
     P.ball = { dir: 'in', t: 0, T: T2, from: handPos().sub(me()), hue: Math.random() };
     h.anim(P.neon, 'Cast', { once: true, after: 'Fly', fade: 0.08 }); if (P.neon.acts.Cast) P.neon.acts.Cast.timeScale = 1.6;
     P.ballMesh.visible = true; P.ring.visible = true; sfx.throw();
+    if (P.stage === 2) echo();
     setName();
   }
   function setName() { h.name(`Neon Amara · rally ${P.count}/${NEED[P.stage]}`); }
@@ -143,8 +144,8 @@ export function createPrism(h) {
   }
   // ---------------------------------------------------------------- borrowed attacks, in boss order
   const COMBOS = [
-    [['twins', 'wrath'], ['wrath', 'split'], ['split', 'wrath']],                                            // stage 1: the Twin Lanterns and Wrath
-    [['glitch', 'chess'], ['rook', 'glitch'], ['chess', 'rook'], ['glitch', 'chess'], ['rook', 'glitch']],  // stage 2: Lilac & Glitch, Ivory & Onyx
+    [['twins', 'wrath'], ['firewave', 'split'], ['split', 'firewave']],                                          // stage 1: the Twin Lanterns and Wrath
+    [['glitch', 'chess'], ['burnsong', 'tidal'], ['knightsong', 'rook'], ['tidal', 'burnsong'], ['knightsong', 'tidal']],  // stage 2: Lilac & Glitch, Ivory & Onyx
     [],
   ];
   function combo(list, then) {
@@ -162,68 +163,218 @@ export function createPrism(h) {
   function addFx(o) { fx.push(o); return o; }
   function killFx(o) { for (const m of o.meshes) (m.parent || h.scene).remove(m); fx.splice(fx.indexOf(o), 1); }
   function flashAura(col) { P.neon.aura.material.color.set(col); P.auraHold = 1.2; }
-  const ATTACK = {
-    // the Twin Lanterns: a blue (keep running) or orange (slide) wave
-    twins() {
-      const c = Math.random() < 0.5 ? 'blue' : 'orange', hgt = c === 'blue' ? 3.1 : 2.2, y0 = c === 'blue' ? 0 : 0.95;
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(7.4, hgt), new THREE.MeshBasicMaterial({ map: h.waveTex[c], transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
-      m.layers.set(1); h.scene.add(m); flashAura(c === 'blue' ? '#5d8fe8' : '#f0913a'); sfx.wave(c === 'blue' ? 0 : 1);
-      h.banner(c === 'blue' ? 'Blue wave!' : 'Orange wave!', c === 'blue' ? 'keep running, don\u2019t move' : 'slide!', 0.9);
-      let t = 0; const T2 = 1.7;
-      addFx({ meshes: [m], update(dt) {
-        t += dt; const k = t / T2; m.position.set(0, y0 + hgt / 2, player.z - 16 * (1 - k));
-        if (k >= 1) {
-          const p = player, still = h.now() - h.lastAct() > 0.45 && p.grounded && p.slideT <= 0, ducked = p.slideT > 0 && p.y < 0.5;
-          if (c === 'blue' ? still : ducked) sfx.dodge(); else h.hurt(c === 'blue' ? 'You moved in the blue wave!' : 'Slide under orange waves!');
-          return false;
-        }
-        return true;
-      } });
-      return T2 + 0.45;
-    },
-    // the twins, split: blue over one or two lanes, orange over the rest
-    split() {
-      const blueLeft = Math.random() < 0.5, nBlue = Math.random() < 0.5 ? 1 : 2;
-      const edge = blueLeft ? (nBlue === 1 ? -0.85 : 0.85) : (nBlue === 1 ? 0.85 : -0.85);
-      const blueLanes = [0, 1, 2].filter((l) => (blueLeft ? LANES[l] < edge : LANES[l] > edge));
-      const g = new THREE.Group();
-      for (const c of ['blue', 'orange']) {
-        const left = (c === 'blue') === blueLeft, x0 = left ? -3.7 : edge, x1 = left ? edge : 3.7, hgt = c === 'blue' ? 3.1 : 2.2, y0 = c === 'blue' ? 0 : 0.95;
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, hgt), new THREE.MeshBasicMaterial({ map: h.waveTex[c], transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
-        m.position.set((x0 + x1) / 2, y0 + hgt / 2, 0); m.layers.set(1); g.add(m);
+  // ---------------------------------------------------------------- who's talking: the fused bosses keep piping up
+  const VOICE = { blue: ['Blue', '#3a63b8'], orange: ['Orange', '#c4651a'], wrath: ['Wrath', '#b52a2a'], joy: ['Joy', '#b88400'], lilac: ['Lilac', '#7a3fc0'], glitch: ['Glitch', '#2f9a3f'], ivory: ['Ivory', '#9a7a2a'], onyx: ['Onyx', '#4a3a5a'], pink: ['Pink', '#c94f86'] };
+  const voiceEl = document.getElementById('voice');
+  let voiceT = null;
+  function say(who, text, secs = 1.4) {
+    if (!voiceEl) return; const [name, col] = VOICE[who];
+    voiceEl.querySelector('b').textContent = name; voiceEl.querySelector('b').style.color = col; voiceEl.querySelector('span').textContent = text;
+    voiceEl.classList.remove('on'); void voiceEl.offsetWidth; voiceEl.classList.add('on');
+    clearTimeout(voiceT); voiceT = setTimeout(() => voiceEl.classList.remove('on'), secs * 1000);
+  }
+  const BICKER = [
+    [['wrath', 'That was YOUR fault!'], ['joy', 'Was not~!']],
+    [['onyx', 'You moved too slow!'], ['ivory', 'I was being *polite*.']],
+    [['glitch', 'Zzt—blame Lilac—zzt'], ['lilac', 'You were off-key. Again.']],
+    [['blue', 'You let go of my hand!'], ['orange', 'You let go of MINE!']],
+    [['joy', 'Can we still be fused after this?'], ['wrath', 'NO.']],
+    [['ivory', 'This is not how chess works.'], ['glitch', 'zzzt—is now—']],
+  ];
+  function bicker() {
+    const pair = BICKER[Math.floor(Math.random() * BICKER.length)];
+    say(pair[0][0], pair[0][1], 1.5); h.after(1.6, () => say(pair[1][0], pair[1][1], 1.5));
+    P.glitchT = 0.7;      // the fusion flickers for a moment
+  }
+
+  // ---------------------------------------------------------------- the building blocks
+  const ring = (lane, z, col) => { const m = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.8, 24), new THREE.MeshBasicMaterial({ color: col, transparent: true, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(LANES[lane], 0.06, z); m.layers.set(1); h.scene.add(m); return m; };
+  const laneOf = () => [0, 1, 2].reduce((a, l) => (Math.abs(player.x - LANES[l]) < Math.abs(player.x - LANES[a]) ? l : a), 0);
+  // a wave rolling down the roof at you. blueLanes: which lanes are blue (the rest orange). onPass runs as it reaches you.
+  function wave(blueLanes, T2, onPass) {
+    const g = new THREE.Group();
+    const all = blueLanes.length === 3 || blueLanes.length === 0;
+    const parts = all ? [[blueLanes.length ? 'blue' : 'orange', -3.7, 3.7]] : (() => {
+      const blueLeft = blueLanes.includes(0), edge = blueLeft ? (blueLanes.length === 1 ? -0.85 : 0.85) : (blueLanes.length === 1 ? 0.85 : -0.85);
+      return blueLeft ? [['blue', -3.7, edge], ['orange', edge, 3.7]] : [['orange', -3.7, edge], ['blue', edge, 3.7]];
+    })();
+    for (const [c, x0, x1] of parts) {
+      const hgt = c === 'blue' ? 3.1 : 2.2, y0 = c === 'blue' ? 0 : 0.95;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, hgt), new THREE.MeshBasicMaterial({ map: h.waveTex[c], transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
+      m.position.set((x0 + x1) / 2, y0 + hgt / 2, 0); m.layers.set(1); g.add(m);
+    }
+    h.scene.add(g); sfx.wave(blueLanes.length ? 0 : 1);
+    let t = 0;
+    addFx({ meshes: [g], update(dt) {
+      t += dt; const k = t / T2; g.position.set(0, 0, player.z - 16 * (1 - k));
+      if (k >= 1) {
+        const p = player, blue = blueLanes.includes(laneOf()), still = h.now() - h.lastAct() > 0.45 && p.grounded && p.slideT <= 0, ducked = p.slideT > 0 && p.y < 0.5;
+        if (blue ? still : ducked) sfx.dodge(); else h.hurt(blue ? 'You moved in the blue wave!' : 'Slide under orange waves!');
+        onPass?.(); return false;
       }
-      const seam = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 3.2), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, depthWrite: false })); seam.position.set(edge, 1.6, 0.02); seam.layers.set(1); g.add(seam);
-      h.scene.add(g); flashAura('#c97ab0'); sfx.wave(0); sfx.wave(1);
-      h.banner('Split wave!', 'blue side: keep running \u00b7 orange side: slide', 1.0);
-      let t = 0; const T2 = 1.8;
-      addFx({ meshes: [g], update(dt) {
-        t += dt; const k = t / T2; g.position.set(0, 0, player.z - 16 * (1 - k));
-        if (k >= 1) {
-          const p = player, lane = [0, 1, 2].reduce((a, l) => (Math.abs(p.x - LANES[l]) < Math.abs(p.x - LANES[a]) ? l : a), 0);
-          const blue = blueLanes.includes(lane), still = h.now() - h.lastAct() > 0.45 && p.grounded && p.slideT <= 0, ducked = p.slideT > 0 && p.y < 0.5;
-          if (blue ? still : ducked) sfx.dodge(); else h.hurt(blue ? 'You moved in the blue wave!' : 'Slide under orange waves!');
-          return false;
-        }
-        return true;
+      return true;
+    } });
+  }
+  // Wrath's cracks: flash for `tele` seconds, then become craters (fire = a pillar too tall to jump)
+  function cracks(lanes, z, fireLanes, tele) {
+    const marks = lanes.map((l) => ring(l, z, fireLanes.includes(l) ? '#ff8a1a' : '#d8343c'));
+    let t = 0;
+    addFx({ meshes: marks, update(dt) {
+      t += dt; for (const m of marks) m.material.opacity = 0.5 + Math.abs(Math.sin(t * 14)) * 0.5;
+      if (t >= tele) { for (const l of lanes) h.makeHole(l, z, fireLanes.includes(l)); sfx.slam(); h.fx(0.15, 0.45); return false; }
+      return true;
+    } });
+  }
+  // Lilac's song: notes hover over lanes, then `then(lane, i)` fires for each note in the same rhythm
+  function song(n, beat, onNote, words) {
+    const melody = [];
+    for (let i = 0; i < n; i++) { let l = Math.floor(Math.random() * 3); if (i && l === melody[i - 1] && Math.random() < 0.6) l = (l + 1 + Math.floor(Math.random() * 2)) % 3; melody.push(l); }
+    // never all three lanes in a row (there's always somewhere to stand)
+    for (let i = 2; i < n; i++) if (new Set(melody.slice(i - 2, i + 1)).size === 3) melody[i] = melody[i - 1];
+    const notes = [];
+    melody.forEach((lane, i) => h.after(0.3 + i * beat, () => {
+      if (!h.isFight()) return;
+      sfx.sing([72, 76, 79][lane], beat * 0.9);
+      const s = h.noteSprite(1.8); h.scene.add(s);
+      const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 9), new THREE.MeshBasicMaterial({ color: '#b98aff', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+      stripe.rotation.x = -Math.PI / 2; stripe.layers.set(1); h.scene.add(stripe);
+      const note = { lane, t: 0 }; notes.push(note);
+      addFx({ meshes: [s, stripe], update(dt) {
+        note.t += dt; const pop = Math.min(1, note.t * 6);
+        s.position.set(LANES[lane], 2.5 + Math.sin(note.t * 4 + i) * 0.12, player.z - 8); s.scale.setScalar(0.4 + pop * 0.6);
+        stripe.position.set(LANES[lane], 0.06, player.z - 6.5); stripe.material.opacity = 0.2 + Math.abs(Math.sin(note.t * 5)) * 0.2;
+        return !note.done;
       } });
-      return T2 + 0.45;
+    }));
+    const singEnd = 0.3 + n * beat + 0.8;
+    h.after(singEnd - 0.35, () => { if (h.isFight()) words?.(); });
+    melody.forEach((lane, i) => h.after(singEnd + i * beat * 1.1, () => {
+      if (!h.isFight()) return;
+      const note = notes.find((q) => q.lane === lane && !q.done); if (note) note.done = true;
+      onNote(lane, i);
+    }));
+    return singEnd + n * beat * 1.1;
+  }
+  // Glitch strikes a lane. burn: the lane stays on fire a moment afterwards
+  function strike(lane, burn) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 14), new THREE.MeshBasicMaterial({ color: '#7dff8a', transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    m.rotation.x = -Math.PI / 2; m.layers.set(1); h.scene.add(m);
+    sfx.strike(); h.fx(0.08, 0.25);
+    if (Math.abs(player.x - LANES[lane]) < 0.85) h.hurt('Glitch caught you in her lane!');
+    let t = 0;
+    addFx({ meshes: [m], update(dt) { t += dt; m.position.set(LANES[lane] + (Math.random() - 0.5) * 0.1, 0.07, player.z - 6); m.material.opacity = Math.max(0, 1 - t / 0.4); return t < 0.4; } });
+    if (!burn) return;
+    const fire = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 13), new THREE.MeshBasicMaterial({ map: h.fireTex || null, color: '#ff7a1a', transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    fire.rotation.x = -Math.PI / 2; fire.layers.set(1); h.scene.add(fire);
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(13, 1.4), new THREE.MeshBasicMaterial({ color: '#ffb347', transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    wall.rotation.y = Math.PI / 2; wall.layers.set(1); h.scene.add(wall);
+    let b = 0, hurt = false;
+    addFx({ meshes: [fire, wall], update(dt) {
+      b += dt; const x = LANES[lane] + (Math.random() - 0.5) * 0.06;
+      fire.position.set(x, 0.08, player.z - 5.5); wall.position.set(x, 0.7 + Math.sin(b * 30) * 0.05, player.z - 5.5);
+      const o = b < 0.15 ? b / 0.15 : Math.max(0, 1 - (b - 0.6) / 0.2); fire.material.opacity = 0.8 * o; wall.material.opacity = 0.55 * o;
+      if (!hurt && b > 0.1 && b < 0.7 && Math.abs(player.x - LANES[lane]) < 0.75) { hurt = true; h.hurt('Burned by the song!'); }
+      return b < 0.8;
+    } });
+  }
+  // a knight drops onto a lane ahead of you (low enough to jump)
+  function knightDrop(lane, white) {
+    const z = player.z - h.speed * 0.95;
+    const mark = ring(lane, z, white ? '#fff1cf' : '#a88ad8');
+    const k = makePiece('knight', white); k.scale.set(1.25, 1.0, 1.25); if (!white) k.rotation.y = Math.PI; k.position.set(LANES[lane], 6, z); h.world.add(k);
+    sfx.springPlant();
+    let t = 0, hurt = false;
+    addFx({ meshes: [mark, k], update(dt) {
+      t += dt; k.position.y = t < 0.45 ? 6 * (1 - t / 0.45) : 0; mark.material.opacity = t < 0.45 ? 0.9 : 0.3;
+      if (!hurt && t >= 0.45 && Math.abs(player.x - LANES[lane]) < 0.7 && Math.abs(player.z - z) < 0.6 && player.y < 0.9) { hurt = true; h.hurt('Trampled by a knight!'); }
+      return player.z > z - 4;
+    } });
+  }
+  // Ivory & Onyx's squares (with spikes). tide: a wave washes over the board, flipping which squares are spiked
+  function board(side0, rows, tide) {
+    const ROW = 8, z0 = player.z - (h.speed * 1.3 + 4) - (tide ? 6 : 0);
+    const sides = Array.from({ length: rows }, () => side0);
+    const tiles = [];
+    for (let r = 0; r < rows; r++) for (let l = 0; l < 3; l++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.66, ROW - 0.1), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
+      m.rotation.x = -Math.PI / 2; m.position.set(LANES[l], 0.05, z0 - (r + 0.5) * ROW); m.layers.set(1); h.scene.add(m);
+      const sp = makeSpikes(); sp.position.set(LANES[l], 0.06, z0 - (r + 0.5) * ROW); h.scene.add(sp);
+      tiles.push({ l, r, m, sp, t0: 0 });
+    }
+    const paint = (r, now) => { for (const q of tiles) if (q.r === r) {
+      const hot = (q.l + r) % 2 === sides[r];
+      q.m.material.color.set(hot ? (sides[r] === 0 ? '#e8a92a' : '#4a2a6a') : (sides[r] === 0 ? '#3a3036' : '#efe6da')); q.m.material.opacity = hot ? 0.85 : 0.55;
+      q.sp.visible = hot; if (hot) { q.sp.setSide(sides[r]); q.t0 = now; }
+    } };
+    let t = 0; for (let r = 0; r < rows; r++) paint(r, 0);
+    // the tide: a shimmering wall that sweeps from beyond the board right up to you
+    let tideMesh = null, tidePos = 0; const flipped = new Set();
+    const far = player.z - z0 + rows * ROW + 4, TT = 2.6;
+    if (tide) {
+      tideMesh = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 2.6), new THREE.MeshBasicMaterial({ map: h.waveTex.blue, color: '#cfe8ff', transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
+      tideMesh.layers.set(1); h.scene.add(tideMesh);
+    }
+    const hurtRows = new Set();
+    addFx({ meshes: [...tiles.flatMap((q) => [q.m, q.sp]), ...(tideMesh ? [tideMesh] : [])], update(dt) {
+      t += dt;
+      for (const q of tiles) { if (q.sp.visible) riseSpikes(q.sp, (t - q.t0) * 3.5, t); }
+      if (tideMesh) {
+        tidePos = Math.min(1, t / TT); const tz = player.z - far * (1 - tidePos);
+        tideMesh.position.set(0, 1.3, tz); tideMesh.material.opacity = tidePos >= 1 ? 0 : 0.9;
+        for (let r = 0; r < rows; r++) if (!flipped.has(r) && tz > z0 - (r + 1) * ROW && tz < z0 - r * ROW + ROW) {
+          // only flip rows the tide has fully crossed, while they're still ahead of you
+          if (tz > z0 - r * ROW) { flipped.add(r); if (z0 - r * ROW < player.z - 3) { sides[r] = 1 - sides[r]; paint(r, t); sfx.wave(0); } }
+        }
+      }
+      const p = player, into = z0 - p.z, r = Math.floor(into / ROW), within = into - r * ROW;
+      if (r >= 0 && r < rows && !hurtRows.has(r) && p.grounded && p.y < 0.3 && within > 1.4 && within < ROW - 1.4) {
+        const lane = [0, 1, 2].find((l) => Math.abs(p.x - LANES[l]) < 0.55);
+        if (lane !== undefined && (lane + r) % 2 === sides[r]) { hurtRows.add(r); h.hurt(`Stepped on ${sides[r] === 0 ? 'Ivory' : 'Onyx'}’s square!`); }
+      }
+      return p.z > z0 - rows * ROW - 3;
+    } });
+    return (player.z - (z0 - rows * ROW)) / h.speed + 0.2;
+  }
+  const randBlue = (split) => { if (!split) return Math.random() < 0.5 ? [0, 1, 2] : []; const left = Math.random() < 0.5, n = Math.random() < 0.5 ? 1 : 2; return left ? [0, 1].slice(0, n) : [2, 1].slice(0, n); };
+
+  const ATTACK = {
+    // ---- the originals
+    twins() {
+      const bl = randBlue(false); flashAura(bl.length ? '#5d8fe8' : '#f0913a');
+      bl.length ? say('blue', 'Hold still…') : say('orange', 'Duck!');
+      h.banner(bl.length ? 'Blue wave!' : 'Orange wave!', bl.length ? 'keep running, don’t move' : 'slide!', 0.9);
+      wave(bl, 1.7); return 2.15;
     },
-    // Ivory & Onyx: a rook slides straight down your lane
+    split() {
+      const bl = randBlue(true); flashAura('#c97ab0'); say('orange', 'Pick a side!');
+      h.banner('Split wave!', 'blue side: keep running · orange side: slide', 1.0);
+      wave(bl, 1.8); return 2.25;
+    },
+    wrath() {
+      const z = player.z - (h.speed * 1.35 + 5), n = Math.random() < 0.5 ? 1 : 2, lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, n), fire = Math.random() < 0.45 ? [lanes[0]] : [];
+      flashAura('#d8343c'); say('wrath', 'SMASH!'); sfx.crackWarn(); h.banner('Wrath’s slam!', fire.length ? 'cracks and fire, switch lanes' : 'red cracks: stay out or jump', 0.9);
+      cracks(lanes, z, fire, 1.0); return 1.0 + (player.z - z) / h.speed * 0.8;
+    },
+    glitch() {
+      flashAura('#9a5fe0'); say('lilac', 'La, la, laaa~'); h.banner('Lilac’s song', 'remember the notes: Glitch strikes those lanes', 1.1);
+      return song(3 + (P.count >= 3 ? 1 : 0), 0.55, (lane) => strike(lane, false), () => { flashAura('#3fd45a'); say('glitch', 'Zzzt—!'); sfx.glitchGo(); h.banner('Glitch!', 'dodge the lanes she sang', 0.8); }) + 0.4;
+    },
+    chess() {
+      const side = Math.random() < 0.5 ? 0 : 1; flashAura(side === 0 ? '#ffd98a' : '#6b5a86'); sfx.crackWarn();
+      side === 0 ? say('ivory', 'Your move, darling.') : say('onyx', 'Too slow!');
+      h.banner(side === 0 ? 'Ivory’s move' : 'Onyx’s move', side === 0 ? 'stand on the dark squares' : 'stand on the light squares', 0.9);
+      return board(side, 3, false);
+    },
     rook() {
       const white = Math.random() < 0.5, lane = player.lane, z = player.z - (h.speed * 1.7 + 12);
-      flashAura(white ? '#ffd98a' : '#6b5a86'); sfx.crackWarn(); h.banner('Rook!', 'it slides down your lane, switch!', 0.9);
-      const mat = new THREE.MeshToonMaterial({ color: white ? '#efe6da' : '#3a3036' });
-      const rk = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 1.9, 18), mat); body.position.y = 0.95; rk.add(body);
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.5, 0.35, 18), mat); top.position.y = 2.05; rk.add(top);
-      for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.22), mat); const a = i * Math.PI / 2 + 0.78; b.position.set(Math.cos(a) * 0.4, 2.33, Math.sin(a) * 0.4); rk.add(b); }
-      rk.position.set(LANES[lane], 7, z); rk.scale.setScalar(1.15); h.world.add(rk);
+      flashAura(white ? '#ffd98a' : '#6b5a86'); sfx.crackWarn(); white ? say('ivory', 'Rook to your lane.') : say('onyx', 'Out of my way!'); h.banner('Rook!', 'it slides down your lane, switch!', 0.9);
+      const rk = makePiece('rook', white); rk.scale.setScalar(1.25); rk.position.set(LANES[lane], 7, z); h.world.add(rk);
       const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 1), new THREE.MeshBasicMaterial({ color: white ? '#fff1cf' : '#a88ad8', transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
       strip.rotation.x = -Math.PI / 2; strip.layers.set(1); h.scene.add(strip);
       let t = 0, rz = z, hurt = false;
       addFx({ meshes: [rk, strip], update(dt) {
         t += dt;
-        if (t < 0.6) { rk.position.y = 7 - (t / 0.6) * 7; } else { rk.position.y = 0; rz += 5.5 * dt; }
+        if (t < 0.6) rk.position.y = 7 - (t / 0.6) * 7; else { rk.position.y = 0; rz += 5.5 * dt; }
         rk.position.z = rz;
         const len = Math.max(0.5, player.z - rz); strip.scale.y = len; strip.position.set(LANES[lane], 0.06, rz + len / 2); strip.material.opacity = t < 0.8 ? 0.7 : 0.25;
         if (!hurt && t > 0.6 && Math.abs(player.x - LANES[lane]) < 0.7 && Math.abs(player.z - rz) < 0.7 && player.y < 2.4) { hurt = true; h.hurt('Flattened by a rook!'); }
@@ -231,80 +382,45 @@ export function createPrism(h) {
       } });
       return 0.6 + (player.z - z) / (h.speed + 5.5) + 0.2;
     },
-    // Wrath: red cracks flash, then she smashes craters (sometimes a pillar of fire)
-    wrath() {
-      const z = player.z - (h.speed * 1.35 + 5), n = Math.random() < 0.5 ? 1 : 2;
-      const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, n), fire = Math.random() < 0.45 ? lanes[0] : -1;
-      flashAura('#d8343c'); sfx.crackWarn(); h.banner('Wrath\u2019s slam!', fire >= 0 ? 'cracks and fire, switch lanes' : 'red cracks: stay out or jump', 0.9);
-      const marks = lanes.map((l) => { const m = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.8, 24), new THREE.MeshBasicMaterial({ color: l === fire ? '#ff8a1a' : '#d8343c', transparent: true, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(LANES[l], 0.06, z); m.layers.set(1); h.scene.add(m); return m; });
-      let t = 0;
-      addFx({ meshes: marks, update(dt) {
-        t += dt; for (const m of marks) m.material.opacity = 0.5 + Math.abs(Math.sin(t * 14)) * 0.5;
-        if (t >= 1.0) { for (const l of lanes) h.makeHole(l, z, l === fire); sfx.slam(); h.fx(0.15, 0.45); return false; }
-        return true;
-      } });
-      return 1.0 + (player.z - z) / h.speed * 0.8;
+
+    // ---- fused: two bosses' attacks working together
+    // Firewave: a twins wave, and in its wake Wrath's cracks open into craters (an orange wave sets one alight)
+    firewave() {
+      const bl = randBlue(Math.random() < 0.4), T2 = 1.7, orange = bl.length < 3;
+      flashAura('#ff5a2a'); say(bl.length ? 'blue' : 'orange', bl.length ? 'Hold still…' : 'Duck…'); h.after(0.7, () => say('wrath', '…and BURN!'));
+      h.banner('Firewave!', 'ride the wave, then dodge what it leaves behind', 1.1);
+      const z = player.z - h.speed * (T2 + 0.95), lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, Math.random() < 0.5 ? 1 : 2);
+      const fire = orange ? [lanes[0]] : [];
+      wave(bl, T2);
+      cracks(lanes, z, fire, T2 + 0.05);
+      return T2 + 1.4;
     },
-    // Lilac & Glitch: she sings a little tune first, each note hovering over a lane (low = left, middle = centre,
-    // high = right). Then Glitch strikes those same lanes, in the same order and rhythm.
-    glitch() {
-      flashAura('#9a5fe0'); h.banner('Lilac’s song', 'remember the notes: Glitch strikes those lanes', 1.1);
-      const n = 3 + (P.count >= 3 ? 1 : 0), beat = 0.55, melody = [];
-      for (let i = 0; i < n; i++) { let l = Math.floor(Math.random() * 3); if (i && l === melody[i - 1] && Math.random() < 0.6) l = (l + 1 + Math.floor(Math.random() * 2)) % 3; melody.push(l); }
-      const notes = [];
-      melody.forEach((lane, i) => h.after(0.3 + i * beat, () => {
-        if (!h.isFight()) return;
-        sfx.sing([72, 76, 79][lane], beat * 0.9);
-        const s = h.noteSprite(1.8); h.scene.add(s);
-        const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 9), new THREE.MeshBasicMaterial({ color: '#b98aff', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
-        stripe.rotation.x = -Math.PI / 2; stripe.layers.set(1); h.scene.add(stripe);
-        const note = { s, lane, t: 0 }; notes.push(note);
-        addFx({ meshes: [s, stripe], update(dt) {
-          note.t += dt; const pop = Math.min(1, note.t * 6);
-          s.position.set(LANES[lane], 2.5 + Math.sin(note.t * 4 + i) * 0.12, player.z - 8); s.scale.setScalar(0.4 + pop * 0.6);
-          stripe.position.set(LANES[lane], 0.06, player.z - 6.5); stripe.material.opacity = 0.2 + Math.abs(Math.sin(note.t * 5)) * 0.2;
-          return !note.done;
-        } });
-      }));
-      const singEnd = 0.3 + n * beat + 0.8;
-      h.after(singEnd - 0.3, () => { if (h.isFight()) { flashAura('#3fd45a'); sfx.glitchGo(); h.banner('Glitch!', 'dodge the lanes she sang', 0.8); } });
-      melody.forEach((lane, i) => h.after(singEnd + i * beat * 1.1, () => {
-        if (!h.isFight()) return;
-        const note = notes.find((q) => q.lane === lane && !q.done); if (note) note.done = true;
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 14), new THREE.MeshBasicMaterial({ color: '#7dff8a', transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-        m.rotation.x = -Math.PI / 2; m.layers.set(1); h.scene.add(m);
-        sfx.strike(); h.fx(0.08, 0.25);
-        if (Math.abs(player.x - LANES[lane]) < 0.85) h.hurt('Glitch caught you in her lane!');
-        let t = 0;
-        addFx({ meshes: [m], update(dt) { t += dt; m.position.set(LANES[lane] + (Math.random() - 0.5) * 0.1, 0.07, player.z - 6); m.material.opacity = Math.max(0, 1 - t / 0.4); return t < 0.4; } });
-      }));
-      return singEnd + n * beat * 1.1 + 0.4;
+    // Burning song: Lilac sings, and every lane Glitch strikes stays on fire for a moment
+    burnsong() {
+      flashAura('#c0402a'); say('lilac', 'A hot little tune~'); h.banner('Burning song', 'the lanes she sings will burn', 1.1);
+      return song(3 + (P.count >= 3 ? 1 : 0), 0.62, (lane) => strike(lane, true), () => { flashAura('#ff7a1a'); say('wrath', 'Make it HOTTER!'); sfx.fireburst?.(); }) + 1.0;
     },
-    // Ivory & Onyx: a stretch of glowing chess squares; stand on the other colour
-    chess() {
-      const side = Math.random() < 0.5 ? 0 : 1, ROW = 8, z0 = player.z - (h.speed * 1.3 + 4), rows = 3;
-      flashAura(side === 0 ? '#ffd98a' : '#6b5a86'); sfx.crackWarn();
-      h.banner(side === 0 ? 'Ivory\u2019s move' : 'Onyx\u2019s move', side === 0 ? 'stand on the dark squares' : 'stand on the light squares', 0.9);
-      const meshes = [], hot = [];
-      for (let r = 0; r < rows; r++) for (let l = 0; l < 3; l++) {
-        const isHot = (l + r) % 2 === side, col = isHot ? (side === 0 ? '#e8a92a' : '#4a2a6a') : (side === 0 ? '#3a3036' : '#efe6da');
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.66, ROW - 0.1), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: isHot ? 0.85 : 0.55, depthWrite: false }));
-        m.rotation.x = -Math.PI / 2; m.position.set(LANES[l], 0.05, z0 - (r + 0.5) * ROW); m.layers.set(1); h.scene.add(m); meshes.push(m);
-        if (isHot) { const sp = makeSpikes(); sp.visible = true; sp.setSide(side); sp.position.set(LANES[l], 0.06, z0 - (r + 0.5) * ROW); h.scene.add(sp); meshes.push(sp); hot.push({ l, r, m, sp }); }
-      }
-      const hurtRows = new Set(); let t = 0;
-      addFx({ meshes, update(dt) {
-        t += dt; for (const q of hot) { q.m.material.opacity = 0.7 + Math.sin(t * 9) * 0.2; riseSpikes(q.sp, t * 3.5, t); }
-        const p = player, into = z0 - p.z, r = Math.floor(into / ROW), within = into - r * ROW;
-        if (r >= 0 && r < rows && !hurtRows.has(r) && p.grounded && p.y < 0.3 && within > 1.4 && within < ROW - 1.4) {
-          const lane = [0, 1, 2].find((l) => Math.abs(p.x - LANES[l]) < 0.55);
-          if (lane !== undefined && (lane + r) % 2 === side) { hurtRows.add(r); h.hurt(`Stepped on ${side === 0 ? 'Ivory' : 'Onyx'}\u2019s square!`); }
-        }
-        return p.z > z0 - rows * ROW - 3;
-      } });
-      return (player.z - (z0 - rows * ROW)) / h.speed + 0.2;
+    // Tidal board: the squares light up, then a tide sweeps over and flips which ones are spiked
+    tidal() {
+      const side = Math.random() < 0.5 ? 0 : 1; flashAura('#7fb6ff');
+      say('orange', 'Surf’s up!'); h.after(1.0, () => say(side === 0 ? 'ivory' : 'onyx', side === 0 ? 'Mind the board.' : 'Flip it!'));
+      h.banner('Tidal board', 'the tide flips the spikes as it passes', 1.2);
+      return board(side, 3, true);
+    },
+    // Knight's song: every note Lilac sings drops a knight onto that lane, so you hop through her tune
+    knightsong() {
+      flashAura('#9a7ad8'); say('lilac', 'A little waltz…'); h.banner('Knight’s song', 'each note drops a knight: hop through the tune', 1.1);
+      const white = Math.random() < 0.5;
+      return song(4, 0.6, (lane) => knightDrop(lane, white), () => say(white ? 'ivory' : 'onyx', white ? 'Knights, if you please.' : 'Hop to it!')) + 0.9;
     },
   };
+  // the finale: one ghost of each of them flickers beside her as she throws
+  const ECHO = [[0, 'blue', 'Faster!'], [2, 'wrath', 'Hit it HARDER!'], [4, 'lilac', 'In time, now~'], [5, 'glitch', 'zzt—again—'], [6, 'ivory', 'Check…'], [7, 'onyx', '…and mate!'], [3, 'joy', 'Wheee!'], [8, 'pink', 'Ugh. Fine. Go.']];
+  function echo() {
+    const [i, who, line] = ECHO[P.count % ECHO.length], b = P.wheel[i];
+    b.g.visible = true; b.g.position.set((P.count % 2 ? 1 : -1) * 2.2, 0.2, 0.6); b.g.scale.setScalar(0.01); h.anim(b, 'Cast', { once: true, after: 'Fly', fade: 0.05 });
+    b.echoT = 1.1; say(who, line, 1.0); flashAura(['#5d8fe8', '#f0913a', '#d8343c', '#ffcf33', '#9a5fe0', '#3fd45a', '#fff1cf', '#6b5a86', '#ff7fb6'][i]);
+  }
   // the last stage: she chains you to the middle lane
   const chains = new THREE.Group(); chains.visible = false;
   function chainUp() {
@@ -326,6 +442,7 @@ export function createPrism(h) {
   function afterHit(hp) {
     P.stage = Math.min(2, P.stage + 1); P.count = 0;
     h.anim(P.neon, 'Hit', { once: true, after: 'Fly', fade: 0.1 });
+    bicker();
     if (hp > 0) {
       h.after(1.8, () => { if (!h.isFight()) return; if (P.stage === 2) chainUp(); else h.banner('Stage 2', 'keep the rally going for 5', 1.8); setName(); });
       h.after(3.6, () => { if (h.isFight()) (P.stage === 2 ? throwBall : opener)(); });
@@ -363,6 +480,11 @@ export function createPrism(h) {
     for (const o of [...fx]) if (!o.update(dt)) killFx(o);
     if (P.locked) { player.lane = 1; chains.position.set(player.x, 0, player.z); chains.children.forEach((c, i) => c.material.color.setHSL(((t * 0.5) + i * 0.03) % 1, 1, 0.65)); }
     if (P.auraHold > 0) P.auraHold -= dt;
+    if (P.phase === 'fused') for (const b of P.wheel) if (b.echoT > 0) {
+      b.echoT -= dt; const k = b.echoT > 0.9 ? (1.1 - b.echoT) / 0.2 : Math.min(1, b.echoT / 0.3);
+      b.g.scale.setScalar(1.0 * Math.max(0.01, k)); if (b.echoT <= 0) b.g.visible = false;
+    }
+    if (P.glitchT > 0) { P.glitchT -= dt; P.neon.aura.material.color.setHSL(Math.random(), 1, 0.6); P.neon.g.position.x = (Math.random() - 0.5) * 0.25; if (P.glitchT <= 0) P.neon.g.position.x = 0; }
   }
   return {
     init, begin, start, update, afterHit, defeated, clear,

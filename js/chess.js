@@ -2,7 +2,7 @@
 // she drops a chess piece that attacks the way it moves, and then it's your move: follow the knight's path and
 // capture their king. Made by KiteRandel.
 import * as THREE from 'three';
-import { PAL, T, toon } from './art.js?v=39';
+import { PAL, T, toon } from './art.js?v=40';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
@@ -29,7 +29,7 @@ export function riseSpikes(m, k, t) { const r = Math.min(1, Math.max(0, k)); m.s
 // ---------------------------------------------------------------- chess pieces, turned on a lathe like little paper-and-ink sculptures
 function lathe(profile, mat, seg = 20) { return new THREE.Mesh(new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), seg), mat); }
 const BASE = [[0, 0], [0.5, 0], [0.52, 0.08], [0.44, 0.14], [0.36, 0.2], [0.3, 0.26]];
-function makePiece(kind, white) {
+export function makePiece(kind, white) {
   const mat = toon({ color: white ? '#efe6da' : '#3a3036', emissive: new THREE.Color(white ? '#fff3dc' : '#2a2036'), emissiveIntensity: white ? 0.25 : 0.35 });
   const g = new THREE.Group();
   if (kind === 'pawn') {

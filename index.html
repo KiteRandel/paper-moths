@@ -105,6 +105,12 @@
     @keyframes neonKick { 0% { opacity: 1; transform: scale(1.04); } 100% { opacity: .8; transform: scale(1); } }
     @keyframes neonScan { 50% { transform: translateY(2px); } }
     @keyframes neonSpin { to { transform: rotate(360deg); } }
+    /* the fused bosses talking over each other */
+    #voice { position: fixed; left: 50%; top: 84px; transform: translate(-50%, -6px) scale(.96); padding: 6px 14px 7px; display: flex; gap: 8px; align-items: baseline; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 4; white-space: nowrap; }
+    #voice.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    #voice b { font-family: 'Shippori Mincho B1', serif; font-size: 16px; }
+    #voice span { font-weight: 700; font-size: 16px; }
+    @media (max-width: 760px) { #voice { top: 132px; } }
     #fade { position: fixed; inset: 0; background: #efe6da; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 8; }
     #fade.on { opacity: 1; }
     #shop { position: fixed; inset: 0; pointer-events: none; }
@@ -237,6 +243,7 @@
     <div class="bFoot"><div class="bWin"></div><button class="bGo"><span>Press</span><kbd>Space</kbd><span class="bGoText">twice to start the fight</span><span class="bDots"><i></i><i></i></span></button></div>
   </div></div>
   <div id="neonFx"><div class="streaks"></div><div class="glow"></div><div class="scan"></div><div class="rim"></div></div>
+  <div id="voice" class="paper"><b></b><span></span></div>
   <div id="fade"></div>
 
   <div class="credit">Amara &amp; the Paper Moths · made by <a href="https://github.com/KiteRandel" target="_blank" rel="noopener">KiteRandel</a></div>
@@ -247,6 +254,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=39"></script>
+  <script type="module" src="js/main.js?v=40"></script>
 </body>
 </html>
