@@ -2,8 +2,8 @@
 // streams of coloured paper moths that fly into Amara, giving her a rainbow outline, and she flies off to the moon.
 // A sketchbook card closes the run: run again from the start, or loop the same game and keep going. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=45';
-import { rainbowHull } from './prism.js?v=45';
+import { T } from './art.js?v=46';
+import { rainbowHull } from './prism.js?v=46';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
@@ -32,12 +32,21 @@ export function createEnding(h) {
     return g;
   }
   function flap(g, dt, sp = 18) { const u = g.userData; u.t += dt * sp; u.l.rotation.y = Math.sin(u.t) * 0.9; u.r.rotation.y = -Math.sin(u.t) * 0.9; }
-  const voiceEl = $('voice'); let voiceT = null;
+  // speech bubbles float next to whoever is talking, like Pink's heckling
+  const voiceEl = $('endSay'); let voiceT = null;
+  const WHO = ['blue', 'orange', 'wrath', 'joy', 'lilac', 'glitch', 'ivory', 'onyx', 'pink'];
   function say(who, text, secs = 1.5) {
     if (!voiceEl) return; const [name, col] = VOICE[who];
     voiceEl.querySelector('b').textContent = name; voiceEl.querySelector('b').style.color = col; voiceEl.querySelector('span').textContent = text;
+    E.speaker = WHO.indexOf(who); placeBubble();
     voiceEl.classList.remove('on'); void voiceEl.offsetWidth; voiceEl.classList.add('on');
     clearTimeout(voiceT); voiceT = setTimeout(() => voiceEl.classList.remove('on'), secs * 1000);
+  }
+  function placeBubble() {
+    const b = bodies()[E.speaker]; if (!voiceEl || !b || !b.g.visible) return;
+    const v = b.g.position.clone().add(new THREE.Vector3(0, 2.3 * b.g.scale.x / 1.25, 0)).project(h.camera);
+    const x = Math.min(innerWidth - 150, Math.max(150, (v.x + 1) / 2 * innerWidth)), y = Math.max(120, (1 - v.y) / 2 * innerHeight);
+    voiceEl.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
   }
   function anim(b, name, o) { h.anim(b, name, o); }
   function popBadge(kind) { const b = document.querySelector(`.badge[data-kind="${kind}"]`); if (!b) return; b.classList.add('got'); b.classList.remove('pop'); void b.getBoundingClientRect(); b.classList.add('pop'); }
@@ -256,6 +265,7 @@ export function createEnding(h) {
     for (const f of [...E.floaters]) { f.life -= dt; f.o.position.y += f.vy * dt; if (f.o.material) f.o.material.opacity = Math.min(1, f.life); if (f.life <= 0) { scene.remove(f.o); E.floaters.splice(E.floaters.indexOf(f), 1); } }
     p.mixer?.update(dt);
     for (const x of E.hull) x.uni.uTime.value = t;
+    if (voiceEl?.classList.contains('on')) placeBubble();
   }
   // the camera, for main.js
   function cam() {

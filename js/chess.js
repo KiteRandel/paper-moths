@@ -2,7 +2,7 @@
 // she drops a chess piece that attacks the way it moves, and then it's your move: follow the knight's path and
 // capture their king. Made by KiteRandel.
 import * as THREE from 'three';
-import { PAL, T, toon } from './art.js?v=45';
+import { PAL, T, toon } from './art.js?v=46';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);

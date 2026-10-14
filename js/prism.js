@@ -3,8 +3,8 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=45';
-import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=45';
+import { T } from './art.js?v=46';
+import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=46';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
