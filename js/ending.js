@@ -2,8 +2,8 @@
 // streams of coloured paper moths that fly into Amara, giving her a rainbow outline, and she flies off to the moon.
 // A sketchbook card closes the run: run again from the start, or loop the same game and keep going. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=43';
-import { rainbowHull } from './prism.js?v=43';
+import { T } from './art.js?v=44';
+import { rainbowHull } from './prism.js?v=44';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
