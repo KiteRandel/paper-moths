@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=27';
-import { InkPass } from './post.js?v=27';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=27';
-import { createBosses } from './boss.js?v=27';
-import { createShop } from './shop.js?v=27';
-import { createBrief } from './brief.js?v=27';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=28';
+import { InkPass } from './post.js?v=28';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=28';
+import { createBosses } from './boss.js?v=28';
+import { createShop } from './shop.js?v=28';
+import { createBrief } from './brief.js?v=28';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -501,6 +501,7 @@ function leaveShop() {
   const b = $('banner'); b.innerHTML = 'Back to the roof!'; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1200);
 }
 const shop = createShop({
+  canvas: renderer.domElement,
   sfx, bgOnly, wallet: walletApi, bandaids: bandaidApi, scissors: scissorsApi, onLeave: leaveShop,
   mainScene: scene, player, LANES, get speed() { return speed; },
   canHeckle: () => state === 'run' && player.alive && !boss.quiet(),
@@ -730,7 +731,7 @@ window.moths = {
   get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },
   set wallet(n) { wallet = walletShown = n; saveWallet(); showWallet(); },
   get shop() { return { open: shop.open_, busy: shop.busy, signs: signs.map((sg) => ({ lane: sg.lane, dz: +(player.z - sg.z).toFixed(1), used: sg.used })), nextAt: nextShopAt }; },
-  shopBuy(k) { shop.buy(k); }, set scissors(n) { setScissors(n); }, get scissors() { return scissors; }, shopLeave() { shop.leave(); },
+  shopBuy(k) { shop.buy(k); }, shopItem(k) { return shop.itemScreen(k); }, set scissors(n) { setScissors(n); }, get scissors() { return scissors; }, shopLeave() { shop.leave(); },
   signAhead(dz = 14, lane = player.lane) {   // put a shop sign right ahead in the current lane (for testing)
     const z = player.z - dz;
     for (const o of [...obstacles]) if (Math.abs(o.box.z0 - z) < 6) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }

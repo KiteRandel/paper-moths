@@ -1,7 +1,7 @@
 // The shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=27';
+import { PAL, T, toon } from './art.js?v=28';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const PINK = '#ff7fb6', PINK_SOFT = '#ffc2dc', PINK_DEEP = '#c94f86';
@@ -34,7 +34,7 @@ function signTexture(text, sub, w = 512, h = 220) {
 export function createShop(ctx) {
   // ctx: { renderer, ink, sfx, bgOnly, wallet: { get(), spend(n) }, bandaids: { get(), add(n), max }, onLeave() }
   const { sfx, bgOnly } = ctx;
-  const PRICE = { bandaid: 3000, scissors: 5000 };
+  const PRICE = { bandaid: 300, scissors: 500 };
   const KEEPER_SCALE = 1.75, HECKLER_SCALE = 1.9;   // she's bigger than everyone else
   const signTex = signTexture('SHOP', null, 512, 200);
   const mDark = toon({ color: PAL.umber }), mPink = toon({ color: '#c0938a', side: THREE.DoubleSide, emissive: new THREE.Color('#d9a59a'), emissiveIntensity: 0.2 });
@@ -122,13 +122,14 @@ export function createShop(ctx) {
   const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.95, 0.8), mWood); body.position.y = 0.475; counter.add(body);
   const top = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.08, 0.95), mCream); top.position.y = 0.99; counter.add(top);
   const front = new THREE.Mesh(new THREE.BoxGeometry(3.62, 0.22, 0.02), toon({ color: PAL.cocoa })); front.position.set(0, 0.72, 0.41); counter.add(front);
-  const display = new THREE.Group(); display.position.set(0.95, 1.22, 0.1); counter.add(display);
+  const ITEM_SCALE = 1.5, BX = -0.95, SX = 0.95;
+  const display = new THREE.Group(); display.position.set(BX, 1.3, 0.1); display.scale.setScalar(ITEM_SCALE); counter.add(display);
   { // a fat bandage roll with a tail, like the pickups on the roof
     const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.2, 18), mPaper); roll.rotation.z = Math.PI / 2; display.add(roll);
     const core = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.21, 10), mTan); core.rotation.z = Math.PI / 2; display.add(core);
     const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); display.add(gl);
   }
-  const snips = new THREE.Group(); snips.position.set(1.55, 1.24, 0.1); counter.add(snips);
+  const snips = new THREE.Group(); snips.position.set(SX, 1.32, 0.1); snips.scale.setScalar(ITEM_SCALE); counter.add(snips);
   { // paper scissors: two silver blades crossed in an X, with pink finger loops
     const blade = toon({ color: '#e4e4ec', emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.15 }), loop = toon({ color: PAL.rose });
     for (const sgn of [-1, 1]) {
@@ -140,13 +141,16 @@ export function createShop(ctx) {
     const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8), mDark); pin.rotation.x = Math.PI / 2; pin.position.y = -0.02; snips.add(pin);
     const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); snips.add(gl);
   }
-  for (const [txt, x] of [['3000', 0.95], ['5000', 1.55]]) {
-    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.2), new THREE.MeshBasicMaterial({ map: signTexture(txt, null, 230, 96), transparent: true })); tag.position.set(x, 1.06, 0.5); tag.rotation.x = -0.5; counter.add(tag);
+  for (const [txt, x] of [['300', BX], ['500', SX]]) {
+    const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.21), new THREE.MeshBasicMaterial({ map: signTexture(txt, null, 230, 96), transparent: true })); tag.position.set(x, 1.06, 0.5); tag.rotation.x = -0.5; counter.add(tag);
   }
+  const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+  const hits = {};
+  for (const [k, x] of [['bandaid', BX], ['scissors', SX]]) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.95, 0.9), hitMat); h.position.set(x, 1.35, 0.15); h.userData.kind = k; counter.add(h); hits[k] = h; }
   // a little bell and a sleepy plant on the counter
-  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), toon({ color: PAL.ember })); bell.position.set(-1.2, 1.03, 0.15); counter.add(bell);
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.2, 10), toon({ color: PAL.rose })); pot.position.set(-1.55, 1.13, -0.05); counter.add(pot);
-  for (let i = 0; i < 5; i++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), toon({ color: '#857f62' })); leaf.scale.set(0.6, 1.4, 0.6); leaf.position.set(-1.55 + Math.cos(i * 1.3) * 0.07, 1.33, -0.05 + Math.sin(i * 1.3) * 0.07); leaf.rotation.z = Math.cos(i * 1.3) * 0.5; counter.add(leaf); }
+  const bell = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), toon({ color: PAL.ember })); bell.position.set(1.62, 1.03, 0.2); counter.add(bell);
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.2, 10), toon({ color: PAL.rose })); pot.position.set(-1.62, 1.13, -0.05); counter.add(pot);
+  for (let i = 0; i < 5; i++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), toon({ color: '#857f62' })); leaf.scale.set(0.6, 1.4, 0.6); leaf.position.set(-1.62 + Math.cos(i * 1.3) * 0.07, 1.33, -0.05 + Math.sin(i * 1.3) * 0.07); leaf.rotation.z = Math.cos(i * 1.3) * 0.5; counter.add(leaf); }
 
   const SEAT = 1.8;   // a tall stool behind the counter, so she can sit and look down at you
   { const stool = new THREE.Group(); stool.position.set(0, 0, -1.95); scene.add(stool);
@@ -341,7 +345,7 @@ export function createShop(ctx) {
 
   // ---------------------------------------------------------------- UI + flow
   const $ = (id) => document.getElementById(id);
-  const ui = { root: $('shop'), say: $('shopSay'), have: { bandaid: $('shopHave'), scissors: $('shopHaveS') }, buy: { bandaid: $('buyBand'), scissors: $('buySnip') }, leave: $('leaveBtn'), fade: $('fade') };
+  const ui = { root: $('shop'), say: $('shopSay'), tip: $('shopTip'), leave: $('leaveBtn'), fade: $('fade') };
   const S = { open: false, t: 0, busy: false };
   const LINES = {
     hello: ['Oh. A customer. Great.', '*sigh* Welcome, I guess.', 'Buy something or don\u2019t.', 'Mm. Look around, whatever.', 'You again.'],
@@ -359,23 +363,52 @@ export function createShop(ctx) {
     ui.say.textContent = pick(LINES[kind]); ui.say.classList.remove('pop'); void ui.say.offsetWidth; ui.say.classList.add('pop');
     clearTimeout(sayT);
   }
-  const ITEMS = { bandaid: { stock: () => ctx.bandaids, show: () => display, line: 'bought' }, scissors: { stock: () => ctx.scissors, show: () => snips, line: 'snipped' } };
-  function refresh() {
-    const have = ctx.wallet.get();
-    for (const k of Object.keys(ITEMS)) {
-      const st = ITEMS[k].stock(), n = st.get();
-      ui.have[k].textContent = `You have ${n} / ${st.max}`;
-      ui.buy[k].disabled = n >= st.max || have < PRICE[k];
-      ui.buy[k].classList.toggle('poor', have < PRICE[k]);
-    }
+  const ITEMS = {
+    bandaid: { stock: () => ctx.bandaids, show: () => display, line: 'bought', name: '\ud83e\ude79 Bandaid', desc: 'Blocks one hit. Only 1 at a time.' },
+    scissors: { stock: () => ctx.scissors, show: () => snips, line: 'snipped', name: '\u2702\ufe0f Paper Scissors', desc: 'Snips away the next obstacle in your lane. Carry up to 3.' },
+  };
+  // hover (or tap) the things on the counter: a little tag says what it is, click to buy
+  let hover = null;
+  function tipFor(k) {
+    const it = ITEMS[k], st = it.stock(), n = st.get(), have = ctx.wallet.get();
+    const status = n >= st.max ? (k === 'bandaid' ? 'You already have one' : 'Your pockets are full') : have < PRICE[k] ? `You need ${PRICE[k] - have} more moths` : 'Click to buy';
+    ui.tip.innerHTML = `<b>${it.name}</b><span class="price">\ud83e\udd8b ${PRICE[k]}</span><small>${it.desc}</small><em class="${status === 'Click to buy' ? 'ok' : 'no'}">${status} \u00b7 have ${n}/${st.max}</em>`;
   }
+  function placeTip() {
+    if (!hover) { ui.tip.classList.remove('on'); return; }
+    const v = new THREE.Vector3(); ITEMS[hover].show().getWorldPosition(v); v.y += 0.55; v.project(camera);
+    const r = ctx.canvas.getBoundingClientRect();
+    ui.tip.style.transform = `translate(${r.left + (v.x + 1) / 2 * r.width}px, ${r.top + (1 - v.y) / 2 * r.height}px) translate(-50%, -100%)`;
+    ui.tip.classList.add('on');
+  }
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function pickItem(e) {
+    const r = ctx.canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects(Object.values(hits), false)[0];
+    return hit ? hit.object.userData.kind : null;
+  }
+  function setHover(k) {
+    if (k === hover) return; hover = k;
+    ctx.canvas.style.cursor = k ? 'pointer' : '';
+    if (k) { tipFor(k); sfx.lane(); }
+    placeTip();
+  }
+  ctx.canvas.addEventListener('pointermove', (e) => { if (S.open && e.pointerType === 'mouse') setHover(pickItem(e)); });
+  ctx.canvas.addEventListener('pointerdown', (e) => {
+    if (!S.open || S.busy) return;
+    const k = pickItem(e); if (!k) { if (e.pointerType !== 'mouse') setHover(null); return; }
+    setHover(k); buy(k);
+  });
+  function refresh() { if (hover) tipFor(hover); }
   function buy(kind = 'bandaid') {
     if (!S.open || S.busy) return;
     const it = ITEMS[kind], st = it.stock();
     if (st.get() >= st.max) { say(kind === 'bandaid' ? 'fullBand' : 'full'); sfx.offKey(); return; }
     if (!ctx.wallet.spend(PRICE[kind])) { say('broke'); sfx.offKey(); return; }
     st.add(1); sfx.power(); if (kind === 'scissors') sfx.snap(); say(it.line);
-    it.show().scale.setScalar(1.35);
+    it.show().scale.setScalar(ITEM_SCALE * 1.35);
     refresh();
   }
   function open() {
@@ -392,13 +425,11 @@ export function createShop(ctx) {
     setTimeout(() => {
       ui.fade.classList.add('on');
       setTimeout(() => {
-        S.open = false; ui.root.classList.add('hidden'); document.body.classList.remove('shopping'); ctx.onLeave();
+        S.open = false; setHover(null); ui.root.classList.add('hidden'); document.body.classList.remove('shopping'); ctx.onLeave();
         ui.fade.classList.remove('on'); S.busy = false;
       }, 380);
     }, 450);
   }
-  ui.buy.bandaid.addEventListener('click', () => buy('bandaid'));
-  ui.buy.scissors.addEventListener('click', () => buy('scissors'));
   ui.leave.addEventListener('click', leave);
   addEventListener('keydown', (e) => {
     if (!S.open) return;
@@ -411,14 +442,17 @@ export function createShop(ctx) {
   function update(dt) {
     S.t += dt;
     for (const m of P.mixers) m.update(dt);
-    display.rotation.y += dt * 1.5; display.position.y = 1.22 + Math.sin(S.t * 2.5) * 0.04; display.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, dt * 6));
-    snips.rotation.y -= dt * 1.2; snips.position.y = 1.24 + Math.sin(S.t * 2.5 + 1.5) * 0.04; snips.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, dt * 6));
+    const want = (k) => new THREE.Vector3(1, 1, 1).multiplyScalar(ITEM_SCALE * (hover === k ? 1.18 : 1));
+    display.rotation.y += dt * (hover === 'bandaid' ? 4 : 1.5); display.position.y = 1.3 + Math.sin(S.t * 2.5) * 0.04; display.scale.lerp(want('bandaid'), Math.min(1, dt * 8));
+    snips.rotation.y -= dt * (hover === 'scissors' ? 3.5 : 1.2); snips.position.y = 1.32 + Math.sin(S.t * 2.5 + 1.5) * 0.04; snips.scale.lerp(want('scissors'), Math.min(1, dt * 8));
     lanterns.forEach((l, i) => { l.rotation.z = Math.sin(S.t * 1.3 + i) * 0.06; });
     // a slow, gentle drift of the camera
     camera.position.set(0.45 + Math.sin(S.t * 0.25) * 0.2, 1.7, 3.6);
     camera.lookAt(0.1, 2.05, -1.4);
+    placeTip();
   }
   function render(ink, t) { ink.render(scene, camera, t); }
 
-  return { get hecklerObj() { return H.b?.g; }, init, heckle, stopHeckle, resetHeckle, updateHeckle, hazards, get heckling() { return H.on; }, makeSign, animSign, open, leave, buy, update, render, get open_() { return S.open; }, get busy() { return S.busy; }, PRICE };
+  function itemScreen(k) { const v = new THREE.Vector3(); hits[k].getWorldPosition(v); v.project(camera); const r = ctx.canvas.getBoundingClientRect(); return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height }; }
+  return { itemScreen, get hecklerObj() { return H.b?.g; }, init, heckle, stopHeckle, resetHeckle, updateHeckle, hazards, get heckling() { return H.on; }, makeSign, animSign, open, leave, buy, update, render, get open_() { return S.open; }, get busy() { return S.busy; }, PRICE };
 }
