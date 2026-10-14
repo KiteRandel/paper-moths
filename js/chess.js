@@ -2,7 +2,7 @@
 // she drops a chess piece that attacks the way it moves, and then it's your move: follow the knight's path and
 // capture their king. Made by KiteRandel.
 import * as THREE from 'three';
-import { PAL, T, toon } from './art.js?v=30';
+import { PAL, T, toon } from './art.js?v=31';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const IVORY = '#fff1cf', ONYX = '#6b5a86';
@@ -332,7 +332,7 @@ export function createChess(h) {
   function afterHit(hp) {
     C.round++; C.restarts = 0;
     for (const b of [C.bodies.white, C.bodies.black]) h.anim(b, 'Hit', { once: true, after: 'Fly', fade: 0.1 });
-    if (hp === 2 && !C.blitz) h.after(1.4, () => { if (h.isFight()) castle(); });
+    if (hp === 1 && !C.blitz) h.after(1.4, () => { if (h.isFight()) castle(); });
     else if (hp > 0) h.after(1.8, () => { if (h.isFight()) cycle(); });
   }
   function clear() {

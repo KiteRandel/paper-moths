@@ -1,8 +1,8 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=30';
-import { createChess } from './chess.js?v=30';
+import { PAL, T, toon } from './art.js?v=31';
+import { createChess } from './chess.js?v=31';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -134,7 +134,7 @@ export function createBosses(ctx) {
   // called by the track generator the first time it lays a quiet block for a pending boss
   function quietStartsAt(z) { if (st.mode === 'pending' && st.startZ === null) st.startZ = z - 4; }
   function begin() {
-    st.mode = 'intro'; timers = []; st.maxHp = st.kind === 'chess' ? 4 : 3; st.hp = st.maxHp;
+    st.mode = 'intro'; timers = []; st.maxHp = 3; st.hp = st.maxHp; st.splitSeen = false;
     const p = player;
     if (st.kind === 'twins') {
       st.boss = B.twins; B.twins.g.visible = true; st.z = p.z - 60; st.y = 2.5; st.x = 0;
@@ -168,6 +168,7 @@ export function createBosses(ctx) {
   }
   const LEGEND = {
     twins: '<span><b class="b">● blue wave</b> keep running, don\u2019t move</span><span><b class="o">● orange wave</b> slide!</span>',
+    twinsSplit: '<span><b class="b">blue side</b> keep running, don\u2019t move</span><span><b class="o">orange side</b> slide!</span><span>pick your side early</span>',
     wrath: '<span><b class="r">● red</b> crater</span><span><b class="o">🔥 flame</b> fire pillar, switch lanes</span><span><b class="y">● gold</b> Joy\u2019s spring, bounce into Wrath</span><span><b class="r">gold + red flicker</b> trap</span>',
     fury: '<span><b class="r">Wrath has Joy!</b> no springs for 10 seconds</span><span>the roof is cracking everywhere, find the safe lane</span>',
     chess: '<span><b>glowing squares</b> hurt, stand on the other colour</span><span><b>pieces</b> move like chess pieces</span><span><b class="y">gold path</b> your move: take the king</span>',
@@ -210,9 +211,11 @@ export function createBosses(ctx) {
       if (prev.length >= 2 && prev[prev.length - 1] === c && prev[prev.length - 2] === c) c = c === 'blue' ? 'orange' : 'blue';
       prev.push(c); seq.push(c);
     }
+    // third round: the twins split the roof between them, blue on one side, orange on the other
+    if (st.round >= 2) seq = seq.map((c, i) => (i === 0 || Math.random() < 0.7 ? 'split' : c));
     seq.forEach((c, i) => {
-      after(i * gap, () => { if (st.mode !== 'fight') return; charge(c); });
-      after(i * gap + 0.5, () => { if (st.mode !== 'fight') return; sendWave(c); });
+      after(i * gap, () => { if (st.mode !== 'fight') return; if (c === 'split') { charge('blue'); charge('orange'); } else charge(c); });
+      after(i * gap + 0.5, () => { if (st.mode !== 'fight') return; c === 'split' ? sendSplit() : sendWave(c); });
     });
     after((n - 1) * gap + 0.5 + 1.6, () => { if (st.mode === 'fight') dropLantern(); });
   }
@@ -230,6 +233,28 @@ export function createBosses(ctx) {
     g.position.set(0, y0 + h / 2, st.boss.g.position.z + 0.5); world.add(g);
     waves.push({ mesh: g, color: c, z: g.position.z, done: false, born: st.t });
     sfx.wave(c === 'blue' ? 0 : 1);
+  }
+  // a split wave: blue (keep running) over one or two lanes, orange (slide) over the rest
+  function sendSplit() {
+    const blueLeft = Math.random() < 0.5, nBlue = Math.random() < 0.5 ? 1 : 2;
+    const edge = blueLeft ? (nBlue === 1 ? -0.85 : 0.85) : (nBlue === 1 ? 0.85 : -0.85);   // x of the seam between them
+    const blueLanes = [0, 1, 2].filter((l) => (blueLeft ? LANES[l] < edge : LANES[l] > edge));
+    const g = bgOnly(new THREE.Group());
+    for (const c of ['blue', 'orange']) {
+      const left = (c === 'blue') === blueLeft;
+      const x0 = left ? -3.7 : edge, x1 = left ? edge : 3.7, w = x1 - x0, h = c === 'blue' ? 3.1 : 2.2, y0 = c === 'blue' ? 0 : 0.95;
+      const geo = new THREE.PlaneGeometry(w, h, 12, 1);
+      const pos = geo.attributes.position; for (let i = 0; i < pos.count; i++) { const x = pos.getX(i) + (x0 + x1) / 2; pos.setZ(i, -0.035 * x * x); }
+      const m = bgOnly(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: waveTex[c], transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false })));
+      m.position.set((x0 + x1) / 2, y0 + h / 2, 0);
+      const e = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.08), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide })); e.position.y = -h / 2; m.add(e);
+      g.add(m);
+    }
+    const seam = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 3.2), new THREE.MeshBasicMaterial({ color: '#fff6e8', transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide })); seam.position.set(edge, 1.6, 0.02); g.add(seam);
+    g.position.set(0, 0, st.boss.g.position.z + 0.5); world.add(g);
+    waves.push({ mesh: g, color: 'split', blueLanes, z: g.position.z, done: false, born: st.t });
+    sfx.wave(0); sfx.wave(1);
+    if (!st.splitSeen) { st.splitSeen = true; banner('Split wave!', 'blue side: keep running \u00b7 orange side: slide', 2.2); ui.legend.innerHTML = LEGEND.twinsSplit; }
   }
   function dropLantern() {
     const lane = Math.floor(Math.random() * 3), z = player.z - (ctx.speed * 2.3 + 8);
@@ -497,15 +522,17 @@ export function createBosses(ctx) {
     if (st.mode === 'fight' && st.kind === 'twins') {
       for (const w of [...waves]) {
         const d = w.mesh.position.z - p.z;
-        w.mesh.children[0].material.opacity = clamp(1 - Math.abs(d) / 30, 0.25, 1);
+        for (const ch of w.mesh.children) if (ch.material) ch.material.opacity = clamp(1 - Math.abs(d) / 30, 0.25, 1);
         w.mesh.scale.y = 1 + Math.sin((st.t - w.born) * 10) * 0.03;
         if (!w.done && p.z <= w.mesh.position.z) {
           w.done = true;
           const still = st.t - lastAct > 0.45 && p.grounded && p.slideT <= 0;
           const ducked = p.slideT > 0 && p.y < 0.5;
-          const ok = w.color === 'blue' ? still : ducked;
-          if (ok) { ctx.addPoints(25); ctx.sparkle(new THREE.Vector3(p.x, 1.2, p.z - 0.5), w.color === 'blue' ? BLUE : ORANGE, 8); sfx.dodge(); }
-          else ctx.hurt(w.color === 'blue' ? 'You moved in the blue wave!' : 'Slide under orange waves!');
+          const lane = [0, 1, 2].reduce((a, l) => (Math.abs(p.x - LANES[l]) < Math.abs(p.x - LANES[a]) ? l : a), 0);
+          const kind = w.color === 'split' ? (w.blueLanes.includes(lane) ? 'blue' : 'orange') : w.color;
+          const ok = kind === 'blue' ? still : ducked;
+          if (ok) { ctx.addPoints(25); ctx.sparkle(new THREE.Vector3(p.x, 1.2, p.z - 0.5), kind === 'blue' ? BLUE : ORANGE, 8); sfx.dodge(); }
+          else ctx.hurt(kind === 'blue' ? 'You moved in the blue wave!' : 'Slide under orange waves!');
         }
         if (d > 6) { world.remove(w.mesh); waves.splice(waves.indexOf(w), 1); }
       }
@@ -776,7 +803,7 @@ export function createBosses(ctx) {
     noteAction() { lastAct = st.t; },
     onJump() { return st.kind === 'chess' && st.mode === 'fight' && chess.queenOn ? chess.queenFire() : false; },
     get beaten() { return st.beaten; }, get won() { return st.won; }, get briefing() { return st.mode === 'briefing'; },
-    get state() { return { chess: st.kind === 'chess' ? chess.state : null, mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind === 'red' && c.fire ? 'fire' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, fires: r.fires, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, fires: holes.filter((h) => h.flame).length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
+    get state() { return { chess: st.kind === 'chess' ? chess.state : null, mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind === 'red' && c.fire ? 'fire' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, fires: r.fires, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, blue: w.blueLanes, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, fires: holes.filter((h) => h.flame).length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
     debugCrater(lane, dz, fire) { makeHole(lane, player.z - dz, fire); },
     debugPromote() { chess.debugPromote(); },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },

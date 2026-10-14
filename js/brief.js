@@ -30,7 +30,7 @@ const GUIDES = {
       { img: 'chess_2', title: 'Dodge the pieces', text: 'Each move drops a piece that attacks the way it moves. <b>Rooks</b> slide straight down a lane, <b>bishops</b> cut diagonally across, <b>knights</b> hop in L-shapes (watch the rings), and <b>pawns</b> march in a wall with one gap. You can jump the pawns.' },
       { img: 'chess_3', title: 'Promote, then strike', text: 'Your move: race your pawn down <b>8 ranks</b> to the <b class="y">gold line</b>. One hit sends you back to rank 1. Reach it and Amara becomes a <b>queen</b>: the sisters drop into the lanes, so get in line with one and press <kbd>jump</kbd> to strike. They dodge the moment you line up, so be quick!' },
     ],
-    win: 'Capture them <b>4 times</b> for checkmate. It only gets faster from there.'
+    win: 'Capture them <b>3 times</b> for checkmate. It only gets faster from there.'
   },
   duet: {
     name: 'Lilac & Glitch',
