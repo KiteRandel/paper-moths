@@ -2,7 +2,7 @@
 // she drops a chess piece that attacks the way it moves, and then it's your move: follow the knight's path and
 // capture their king. Made by KiteRandel.
 import * as THREE from 'three';
-import { PAL, T, toon } from './art.js?v=37';
+import { PAL, T, toon } from './art.js?v=38';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
@@ -159,7 +159,7 @@ export function createChess(h) {
   const marks = [];
   function mark(mesh, life) { marks.push({ mesh, t: 0, life }); }
   function attack(side, forced) {
-    const lvl = Math.min(C.round, 3), fast = (side === 1 ? 1.45 : 1.1) + lvl * 0.12, p = player, sp = h.speed;
+    const lvl = Math.min(C.round, 3), fast = (side === 1 ? 1.45 : 1.1) + Math.min(lvl, 1) * 0.12, p = player, sp = h.speed;
     const pool = ['rook', 'pawns', 'bishop', 'knight', 'rook', 'bishop', 'knight', 'pawns'].slice(0, 4 + lvl * 2);
     const kind = forced || pool[Math.floor(Math.random() * pool.length)];
     if (kind === 'rook') {        // slides straight down your lane
@@ -236,7 +236,7 @@ export function createChess(h) {
     const line = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 0.7), goldMat); line.rotation.x = -Math.PI / 2; line.position.set(0, 0.07, C.z0 - (r0 + RANKS) * ROW); line.layers.set(1); world.add(line);
     C.race = { id, r0, line, done: false };
     // pieces keep coming the whole way down
-    const n = 2 + Math.min(C.round, 3), span = (RANKS * ROW) / h.speed;
+    const n = 2 + Math.min(C.round, 1), span = (RANKS * ROW) / h.speed;
     for (let i = 0; i < n; i++) h.after(0.35 + i * (span * 0.8 / n), () => { if (C.race && C.race.id === id && !C.race.done && h.isFight()) attack(i % 2, Math.random() < 0.5 ? 'pawns' : 'knight'); });   // only jumpable pieces in the race, so there's always a way through
     h.banner(C.restarts ? 'Rank 1 again…' : 'Your move: promotion race!', 'reach the gold line at rank 8 without getting hit', 1.6); sfx.echoStart();
   }
@@ -327,13 +327,13 @@ export function createChess(h) {
     if (C.blitz) {     // after castling: they both move at once
       slamClock(0); slamClock(1);
       h.banner('Blitz!', 'they’re both moving at once', 1.1);
-      colourMove(C.turn % 2, 5);
-      h.after(0.6, () => { if (h.isFight()) attack(0); });
-      h.after(1.1, () => { if (h.isFight()) attack(1); });
-      h.after(2.2, () => { if (h.isFight()) attack(1); });
-      h.after(3.6, () => { if (h.isFight()) { slamClock(0); slamClock(1); colourMove((C.turn + 1) % 2, 4); attack(0); } });
-      h.after(5.0, () => { if (h.isFight()) attack(1); });
-      h.after(7.0, () => { if (h.isFight()) startRace(); });
+      // spaced out so there's always a fair way through (3 pieces, ~2 s apart)
+      colourMove(C.turn % 2, 4);
+      h.after(0.9, () => { if (h.isFight()) attack(0); });
+      h.after(3.0, () => { if (h.isFight()) attack(1); });
+      h.after(5.0, () => { if (h.isFight()) { slamClock(0); slamClock(1); colourMove((C.turn + 1) % 2, 3); } });
+      h.after(5.6, () => { if (h.isFight()) attack(Math.random() < 0.5 ? 0 : 1); });
+      h.after(8.2, () => { if (h.isFight()) startRace(); });
       return;
     }
     sideMove(0, () => sideMove(1, () => startRace()));
