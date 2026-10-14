@@ -1,7 +1,7 @@
 // The shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=23';
+import { PAL, T, toon } from './art.js?v=24';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const PINK = '#ff7fb6', PINK_SOFT = '#ffc2dc', PINK_DEEP = '#c94f86';
@@ -336,6 +336,7 @@ export function createShop(ctx) {
     bought: ['Thank you~ stay safe up there!', 'One bandaid, wrapped with love.', 'That one’s extra sticky. Good luck!', 'Pleasure doing business!'],
     broke: ['Hmm, you’ll need a few more moths for that.', 'Come back with more moths, sweet pea!', 'Not quite enough moths yet…'],
     full: ['You can only carry three, silly!', 'Your pockets are full already!'],
+    fullBand: ['You\u2019ve already got one on, silly!', 'One bandaid at a time, sweet pea.', 'Use that one up first!'],
     snipped: ['Snip snip! Nothing can stop you now.', 'My sharpest pair, just for you~', 'They’ll cut through anything. Probably.', 'Ooh, big spender!'],
     bye: ['Bye bye! Don’t trip!', 'See you on the rooftops!'],
   };
@@ -358,7 +359,7 @@ export function createShop(ctx) {
   function buy(kind = 'bandaid') {
     if (!S.open || S.busy) return;
     const it = ITEMS[kind], st = it.stock();
-    if (st.get() >= st.max) { say('full'); sfx.offKey(); return; }
+    if (st.get() >= st.max) { say(kind === 'bandaid' ? 'fullBand' : 'full'); sfx.offKey(); return; }
     if (!ctx.wallet.spend(PRICE[kind])) { say('broke'); sfx.offKey(); anim(P.keeper, 'Idle'); return; }
     st.add(1); sfx.power(); if (kind === 'scissors') sfx.snap(); say(it.line);
     anim(P.keeper, 'Clap', { once: true, after: 'Idle' });

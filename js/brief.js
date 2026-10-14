@@ -19,7 +19,6 @@ const GUIDES = {
       { img: 'wrath_1', title: 'Watch the cracks', text: 'Cracks flash across the roof before each slam. <b class="r">Red</b>: a crater that hurts, so switch lanes or jump it. <b class="o">Flaming</b>: a fire pillar too tall to jump, so switch lanes.' },
       { img: 'wrath_2', title: 'Bounce on <b class="y">Joy’s spring</b>', text: 'A <b class="y">gold</b> crack means Joy plants a sunflower spring there. Run onto it to launch high into the air. If a gold crack <b class="r">flickers red</b>, Wrath is about to stomp that spring flat, so stay away!' },
       { img: 'wrath_3', title: 'Smack into Wrath', text: 'In mid-air, steer into Wrath’s lane with <kbd>←</kbd> <kbd>→</kbd> and crash into her. She tries to dodge sideways, so follow her.' },
-      { img: 'wrath_4', title: 'Survive her fury', text: 'After the 2nd hit she grabs Joy. For 10 seconds there are no springs and the roof cracks everywhere. Find the safe lane in every row. Then Joy breaks free and plants one last spring.' },
     ],
     win: 'Hit Wrath <b>3 times</b> and she runs out of fury.',
   },

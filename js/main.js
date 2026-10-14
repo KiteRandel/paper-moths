@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=23';
-import { InkPass } from './post.js?v=23';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=23';
-import { createBosses } from './boss.js?v=23';
-import { createShop } from './shop.js?v=23';
-import { createBrief } from './brief.js?v=23';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=24';
+import { InkPass } from './post.js?v=24';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=24';
+import { createBosses } from './boss.js?v=24';
+import { createShop } from './shop.js?v=24';
+import { createBrief } from './brief.js?v=24';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -347,7 +347,7 @@ function updateFliers(dt) {
 }
 
 // =================================================================== bandaids: stack up to three, each one blocks a hit
-const MAX_BANDAIDS = 3;
+const MAX_BANDAIDS = 1;     // one bandaid at a time: it doesn't stack
 function setBandaids(n) {
   player.shield = clamp(n, 0, 99); player.shieldFx.visible = player.shield > 0;
   $('pShield').classList.toggle('hidden', player.shield <= 0);
