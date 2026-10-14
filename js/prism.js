@@ -3,8 +3,8 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=46';
-import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=46';
+import { T } from './art.js?v=47';
+import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=47';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -333,12 +333,13 @@ export function createPrism(h) {
       q.sp.visible = hot; if (hot) { q.sp.setSide(sides[r]); q.t0 = now; }
     } };
     let t = 0; for (let r = 0; r < rows; r++) paint(r, 0);
-    // the tide: a shimmering wall that sweeps from beyond the board right up to you
+    // the tide: a shimmering ripple that runs along the floor from beyond the board right up to you. It isn't a
+    // wave you dodge (no blue or orange): it just flips the squares it crosses, so watch the spikes swap behind it
     let tideMesh = null, tidePos = 0; const flipped = new Set();
     const far = player.z - z0 + rows * ROW + 4, TT = 2.6;
     if (tide) {
-      tideMesh = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 2.6), new THREE.MeshBasicMaterial({ map: h.waveTex.blue, color: '#cfe8ff', transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
-      tideMesh.layers.set(1); h.scene.add(tideMesh);
+      tideMesh = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 1.1), new THREE.MeshBasicMaterial({ color: '#fff3c8', transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
+      tideMesh.rotation.x = -Math.PI / 2; tideMesh.layers.set(1); h.scene.add(tideMesh);
     }
     const hurtRows = new Set();
     addFx({ meshes: [...tiles.flatMap((q) => [q.m, q.sp]), ...(tideMesh ? [tideMesh] : [])], update(dt) {
@@ -346,7 +347,7 @@ export function createPrism(h) {
       for (const q of tiles) { if (q.sp.visible) riseSpikes(q.sp, (t - q.t0) * 3.5, t); }
       if (tideMesh) {
         tidePos = Math.min(1, t / TT); const tz = player.z - far * (1 - tidePos);
-        tideMesh.position.set(0, 1.3, tz); tideMesh.material.opacity = tidePos >= 1 ? 0 : 0.9;
+        tideMesh.position.set(0, 0.1, tz); tideMesh.material.opacity = tidePos >= 1 ? 0 : 0.55 + Math.abs(Math.sin(t * 12)) * 0.4; tideMesh.material.color.setHSL((t * 0.6) % 1, 0.7, 0.8);
         for (let r = 0; r < rows; r++) if (!flipped.has(r) && tz > z0 - (r + 1) * ROW && tz < z0 - r * ROW + ROW) {
           // only flip rows the tide has fully crossed, while they're still ahead of you
           if (tz > z0 - r * ROW) { flipped.add(r); if (z0 - r * ROW < player.z - 3) { sides[r] = 1 - sides[r]; paint(r, t); sfx.wave(0); } }
@@ -435,8 +436,8 @@ export function createPrism(h) {
     // Tidal board: the squares light up, then a tide sweeps over and flips which ones are spiked
     tidal() {
       const side = Math.random() < 0.5 ? 0 : 1; flashAura('#7fb6ff');
-      say('orange', 'Surf’s up!'); h.after(1.0, () => say(side === 0 ? 'ivory' : 'onyx', side === 0 ? 'Mind the board.' : 'Flip it!'));
-      h.banner('Tidal board', 'the tide flips the spikes as it passes', 1.2);
+      say('blue', 'Watch it flip~'); h.after(1.0, () => say(side === 0 ? 'ivory' : 'onyx', side === 0 ? 'Mind the board.' : 'Flip it!'));
+      h.banner('Rippling board', 'a ripple runs across and flips the spikes: watch which squares change', 1.3);
       const dur = board(side, 3, true); return { dur, ball: dur * 0.55 };
     },
     // Knight's song: every note Lilac sings drops a knight onto that lane, so you hop through her tune

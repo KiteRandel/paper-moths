@@ -1,9 +1,9 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=46';
-import { createChess } from './chess.js?v=46';
-import { createPrism } from './prism.js?v=46';
+import { PAL, T, toon } from './art.js?v=47';
+import { createChess } from './chess.js?v=47';
+import { createPrism } from './prism.js?v=47';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
