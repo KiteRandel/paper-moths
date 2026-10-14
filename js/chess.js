@@ -2,7 +2,7 @@
 // she drops a chess piece that attacks the way it moves, and then it's your move: follow the knight's path and
 // capture their king. Made by KiteRandel.
 import * as THREE from 'three';
-import { PAL, T, toon } from './art.js?v=38';
+import { PAL, T, toon } from './art.js?v=39';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
@@ -49,7 +49,7 @@ function makePiece(kind, white) {
     s.moveTo(-0.32, 0); s.lineTo(0.3, 0); s.lineTo(0.22, 0.5); s.quadraticCurveTo(0.42, 0.62, 0.5, 0.86); s.lineTo(0.36, 0.98);
     s.quadraticCurveTo(0.14, 0.9, 0.06, 1.0); s.lineTo(0.02, 1.2); s.lineTo(-0.1, 1.04); s.quadraticCurveTo(-0.4, 0.86, -0.32, 0);
     const head = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: 0.36, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 2 }), mat);
-    head.position.set(0, 0.34, -0.18); head.rotation.y = Math.PI / 2; g.add(head);
+    head.position.set(0, 0.34, -0.18); g.add(head);   // side-on, so you see the horse's profile
   } else if (kind === 'king') {
     g.add(lathe([...BASE, [0.26, 1.2], [0.36, 1.3], [0.22, 1.38], [0.3, 1.62], [0.1, 1.72], [0, 1.72]], mat));
     const v = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, 0.1), mat); v.position.y = 1.92; g.add(v);
@@ -147,7 +147,7 @@ export function createChess(h) {
     const mesh = makePiece(kind, side === 0); const x = LANES[lane];
     const pc = { kind, side, mesh, x, z, vx: 0, vz: 0, y: 7, h: 2.2, hurt: false, t: 0, land: 0.45, ...opts };
     mesh.position.set(x, pc.y, z); mesh.rotation.y = side === 0 ? 0 : Math.PI;
-    if (kind === 'pawn') mesh.scale.setScalar(1.15); else mesh.scale.setScalar(1.25);
+    if (kind === 'pawn') mesh.scale.setScalar(1.15); else if (kind === 'knight') mesh.scale.set(1.25, 1.0, 1.25); else mesh.scale.setScalar(1.25);
     world.add(mesh); C.pieces.push(pc);
     return pc;
   }
@@ -187,7 +187,7 @@ export function createChess(h) {
         const z = player.z - h.speed * (0.65 + 0.45);
         const ring = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.72, 24), new THREE.MeshBasicMaterial({ color: side === 0 ? IVORY : '#a88ad8', transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
         ring.rotation.x = -Math.PI / 2; ring.position.set(LANES[lane], 0.06, z); ring.layers.set(1); world.add(ring); mark(ring, 1.6);
-        const pc = piece('knight', side, lane, z, { y: 6, land: 0.6, h: 1.0, life: 1.6 }); sfx.springPlant();
+        const pc = piece('knight', side, lane, z, { y: 6, land: 0.6, h: 0.9, life: 1.6 }); sfx.springPlant();
       });
       return 'Knight';
     }
