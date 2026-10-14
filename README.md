@@ -24,7 +24,7 @@ Press **Esc** (or the ⏸ button) to pause and unpause. Hold **↓ / S** to keep
 - 🩹 A **bandaid** absorbs one bump. You can only have one at a time.
 - 🎀 A **ribbon** whisks nearby moths straight into your purse for a few seconds.
 - 🛍️ Every so often a pink **SHOP** sign stands over one lane. Run through its curtain to visit a little shop where a very bored, very big pink Amara sits on a tall stool and sells 🩹 bandaids for 3000 moths and ✂️ paper scissors for 5000. The scissors snip away the next obstacle coming at you in your lane. You can have 1 bandaid and up to 3 scissors. Press 1 or 2 to buy, and Esc or Space to head back to the roof. Skip the shop and she takes it personally: she floats along over the rooftops for about 20 seconds, sitting in mid-air with her cheek in her hand, teasing you and lazily flicking grey-white lightning down onto the roof ahead. A crackling ring marks where each bolt will land, and the scorched spot it leaves still hurts for a moment, so switch lanes. There's always a lane that's safe.
-- Things get faster the longer you run. The top-left corner counts the bosses you've defeated this run, and your record for most bosses is saved in your browser.
+- Things get faster the longer you run. The top-left corner counts the bosses you've defeated this run, with a badge for each boss that stays greyed out until you beat it, and your record for most bosses is saved in your browser.
 
 ## Bosses
 

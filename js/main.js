@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=26';
-import { InkPass } from './post.js?v=26';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=26';
-import { createBosses } from './boss.js?v=26';
-import { createShop } from './shop.js?v=26';
-import { createBrief } from './brief.js?v=26';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=27';
+import { InkPass } from './post.js?v=27';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=27';
+import { createBosses } from './boss.js?v=27';
+import { createShop } from './shop.js?v=27';
+import { createBrief } from './brief.js?v=27';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -677,6 +677,10 @@ function updateCamera(dt, t) {
 }
 function updateHUD() {
   $('bossN').textContent = boss.beaten;
+  for (const b of document.querySelectorAll('.badge')) {       // each boss badge lights up the first time you beat that boss this run
+    const got = boss.won.has(b.dataset.kind);
+    if (got !== b.classList.contains('got')) { b.classList.toggle('got', got); if (got) { b.classList.remove('pop'); void b.getBoundingClientRect(); b.classList.add('pop'); } }
+  }
   document.body.classList.toggle('bossing', !$('legend').classList.contains('hidden'));
 }
 
@@ -720,7 +724,7 @@ new GLTFLoader().load('assets/amara.glb', (gltf) => {
 frame();
 
 window.moths = {
-  get boss() { return boss.state; }, set noBrief(v) { noBrief = v; }, get briefing() { return brief.on; }, briefPress() { brief.press(); },
+  get boss() { return boss.state; }, debugWin(k) { boss.won.add(k); }, set noBrief(v) { noBrief = v; }, get briefing() { return brief.on; }, briefPress() { brief.press(); },
   heckle(side) { shop.heckle(side); }, set debugCam(v) { debugCam = v; }, get heckling() { return shop.heckling; }, get bolts() { return shop.hazards().map((h) => ({ lane: h.lane, phase: h.phase, dz: +(player.z - h.z).toFixed(1) })); },
   set shopOff(v) { shopOn = !v; },
   get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },

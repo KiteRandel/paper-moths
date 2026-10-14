@@ -113,10 +113,16 @@
     .shopPanel .hint { text-align: center; }
     @media (max-width: 600px) { #shopSay { top: 12%; font-size: 15px; } .shopPanel { left: 50%; transform: translateX(-50%); bottom: 70px; } .shopPanel .hint { display: none; } }
     /* top-left: bosses defeated */
-    .bossCount { text-align: center; min-width: 104px; }
+    .bossCount { min-width: 104px; }
     .bcLabel { font-size: 12px; font-weight: 700; opacity: .75; letter-spacing: .02em; }
-    .bossCount .score { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; }
-    .bcIcon { font-size: 20px; }
+    .bcRow { display: flex; align-items: center; gap: 10px; margin-top: 3px; }
+    .bcRow .score { min-width: 1ch; }
+    .badges { display: flex; gap: 5px; }
+    .badge { width: 38px; height: 38px; display: block; filter: grayscale(1) contrast(.8); opacity: .32; transition: filter .4s, opacity .4s; }
+    .badge.got { filter: none; opacity: 1; }
+    .badge.pop { animation: badgePop .9s; }
+    @keyframes badgePop { 0% { transform: scale(.4) rotate(-30deg); } 55% { transform: scale(1.45) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+    @media (max-width: 600px) { .badge { width: 30px; height: 30px; } }
     /* boss guide */
     .brief { position: fixed; inset: 0; display: grid; place-items: center; padding: 14px; pointer-events: none; opacity: 0; transition: opacity .3s; z-index: 7; }
     .brief.on { opacity: 1; pointer-events: auto; background: radial-gradient(rgba(58,42,38,.15), rgba(58,42,38,.5)); }
@@ -157,7 +163,7 @@
   <div id="hud" class="hidden">
     <div class="paper bossCount" title="bosses defeated this run">
       <div class="bcLabel">bosses defeated</div>
-      <div class="score"><span class="bcIcon">⚔️</span><span id="bossN">0</span></div>
+      <div class="bcRow"><div class="score" id="bossN">0</div><div class="badges"><svg class="badge" data-kind="twins" viewBox="0 0 40 40" aria-label="The Twin Lanterns"><title>The Twin Lanterns</title><circle cx="20" cy="20" r="18" fill="#efe6da" stroke="#3a2a26" stroke-width="2.2"/><circle cx="20" cy="20" r="14.5" fill="none" stroke="#a28b7f" stroke-width="1" stroke-dasharray="3 2.2"/><path d="M9 13 Q20 7 31 13" fill="none" stroke="#3a2a26" stroke-width="1.3"/><line x1="14.5" y1="10.6" x2="14.5" y2="14" stroke="#3a2a26" stroke-width="1.2"/><line x1="25.5" y1="10.6" x2="25.5" y2="14" stroke="#3a2a26" stroke-width="1.2"/><rect x="10" y="14" width="9" height="13" rx="4" fill="#7fa3ec" stroke="#3a2a26" stroke-width="1.5"/><line x1="10.5" y1="20.5" x2="18.5" y2="20.5" stroke="#3a2a26" stroke-width=".8"/><rect x="21" y="14" width="9" height="13" rx="4" fill="#f3a35a" stroke="#3a2a26" stroke-width="1.5"/><line x1="21.5" y1="20.5" x2="29.5" y2="20.5" stroke="#3a2a26" stroke-width=".8"/><rect x="12.5" y="27" width="4" height="2" fill="#3a2a26"/><rect x="23.5" y="27" width="4" height="2" fill="#3a2a26"/></svg><svg class="badge" data-kind="wrath" viewBox="0 0 40 40" aria-label="Wrath &amp; Joy"><title>Wrath &amp; Joy</title><circle cx="20" cy="20" r="18" fill="#efe6da" stroke="#3a2a26" stroke-width="2.2"/><circle cx="20" cy="20" r="14.5" fill="none" stroke="#a28b7f" stroke-width="1" stroke-dasharray="3 2.2"/><path d="M17 31 C9 27 10 19 15 14 C15 18 17 19 18 18 C17 13 20 9 24 7 C23 12 28 15 28 21 C28 27 24 31 17 31 Z" fill="#d8443c" stroke="#3a2a26" stroke-width="1.5" stroke-linejoin="round"/><path d="M18 29 C14 26 15 22 18 20 C19 23 22 23 22 26 C22 28 20 29 18 29 Z" fill="#f3a35a"/><ellipse cx="30.6" cy="27.0" rx="2" ry="1.2" transform="rotate(0 30.6 27.0)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><ellipse cx="29.5" cy="29.5" rx="2" ry="1.2" transform="rotate(45 29.5 29.5)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><ellipse cx="27.0" cy="30.6" rx="2" ry="1.2" transform="rotate(90 27.0 30.6)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><ellipse cx="24.5" cy="29.5" rx="2" ry="1.2" transform="rotate(135 24.5 29.5)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><ellipse cx="23.4" cy="27.0" rx="2" ry="1.2" transform="rotate(180 23.4 27.0)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><ellipse cx="24.4" cy="24.5" rx="2" ry="1.2" transform="rotate(225 24.4 24.5)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><ellipse cx="27.0" cy="23.4" rx="2" ry="1.2" transform="rotate(270 27.0 23.4)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><ellipse cx="29.5" cy="24.4" rx="2" ry="1.2" transform="rotate(315 29.5 24.4)" fill="#ffcf33" stroke="#3a2a26" stroke-width=".6"/><circle cx="27" cy="27" r="2.4" fill="#634d44" stroke="#3a2a26" stroke-width=".7"/></svg><svg class="badge" data-kind="duet" viewBox="0 0 40 40" aria-label="Lilac &amp; Glitch"><title>Lilac &amp; Glitch</title><circle cx="20" cy="20" r="18" fill="#efe6da" stroke="#3a2a26" stroke-width="2.2"/><circle cx="20" cy="20" r="14.5" fill="none" stroke="#a28b7f" stroke-width="1" stroke-dasharray="3 2.2"/><path d="M17 27 L17 11 L28 9 L28 24" fill="none" stroke="#7a3fc0" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="14.5" cy="27.5" rx="3.6" ry="2.7" transform="rotate(-20 14.5 27.5)" fill="#9a5fe0" stroke="#3a2a26" stroke-width="1.2"/><ellipse cx="25.5" cy="24.5" rx="3.6" ry="2.7" transform="rotate(-20 25.5 24.5)" fill="#9a5fe0" stroke="#3a2a26" stroke-width="1.2"/><path d="M8 17 L12 14 L10 19 L14 17" fill="none" stroke="#3fd45a" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><path d="M29 31 L32 28 L31 32 L34 30" fill="none" stroke="#3fd45a" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></div></div>
     </div>
     <div>
       <div class="paper sub">most bosses <b id="best">0</b><button id="pauseBtn" title="Pause (Esc)">⏸</button><button id="muteBtn" title="Music">♪</button></div>
@@ -234,6 +240,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=26"></script>
+  <script type="module" src="js/main.js?v=27"></script>
 </body>
 </html>
