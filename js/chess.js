@@ -2,7 +2,7 @@
 // she drops a chess piece that attacks the way it moves, and then it's your move: follow the knight's path and
 // capture their king. Made by KiteRandel.
 import * as THREE from 'three';
-import { PAL, T, toon } from './art.js?v=29';
+import { PAL, T, toon } from './art.js?v=30';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const IVORY = '#fff1cf', ONYX = '#6b5a86';
@@ -75,7 +75,7 @@ export function createChess(h) {
   const baseMat = [new THREE.MeshBasicMaterial({ map: squareTex(true) }), new THREE.MeshBasicMaterial({ map: squareTex(false) })];
   const hotMat = [new THREE.MeshBasicMaterial({ map: glowTex(true), transparent: true, depthWrite: false }), new THREE.MeshBasicMaterial({ map: glowTex(false), transparent: true, depthWrite: false })];
   const pathMat = new THREE.MeshBasicMaterial({ color: '#e8a92a', transparent: true, opacity: 0.8, depthWrite: false });
-  const C = { on: false, z0: 0, flip: 0, rows: new Map(), hot: null, pieces: [], path: null, turn: 0, cycleN: 0, blitz: false, sides: null, bodies: null, clock: null, slam: [0, 0] };
+  const C = { dbg: [], on: false, z0: 0, flip: 0, rows: new Map(), hot: null, pieces: [], path: null, turn: 0, cycleN: 0, blitz: false, sides: null, bodies: null, clock: null, slam: [0, 0] };
   const colorOf = (lane, r) => (lane + r + C.flip) % 2;          // 0 = ivory square, 1 = onyx square
   const rowAt = (z) => Math.floor((C.z0 - z) / ROW);
   const rowMid = (r) => C.z0 - (r + 0.5) * ROW;
@@ -112,10 +112,11 @@ export function createChess(h) {
   function checkSquares() {
     const p = player; if (!p.alive || !p.grounded || p.y > 0.3) return;
     const r = rowAt(p.z), row = C.rows.get(r); if (!row || row.side === null || row.hurt) return;
-    const lane = p.x < (LANES[0] + LANES[1]) / 2 ? 0 : p.x > (LANES[1] + LANES[2]) / 2 ? 2 : 1;
-    // a little forgiveness at the ends of each square
-    const into = (C.z0 - p.z) - r * ROW; if (into < 0.6 || into > ROW - 0.6) return;
-    if (colorOf(lane, r) === row.side) { row.hurt = true; h.hurt(`Stepped on ${who(row.side)}’s square!`); }
+    // you only count as standing on a square once you're settled in its lane (mid-switch is safe)...
+    const lane = [0, 1, 2].find((l) => Math.abs(p.x - LANES[l]) < 0.55); if (lane === undefined) return;
+    // ...and the seams between squares are safe, so there's a fair moment to change lanes
+    const into = (C.z0 - p.z) - r * ROW; if (into < 1.4 || into > ROW - 1.4) return;
+    if (colorOf(lane, r) === row.side) { row.hurt = true; C.dbg.push({ lane, x: +p.x.toFixed(2), into: +into.toFixed(1), side: row.side, safe: [0, 1, 2].filter((l) => colorOf(l, r) !== row.side), y: +p.y.toFixed(2), slide: +p.slideT.toFixed(2), r, rank: row.rank }); hurt(`Stepped on ${who(row.side)}’s square!`); }
   }
 
   // ---------------------------------------------------------------- pieces
@@ -134,10 +135,10 @@ export function createChess(h) {
   }
   const marks = [];
   function mark(mesh, life) { marks.push({ mesh, t: 0, life }); }
-  function attack(side) {
-    const lvl = Math.min(C.cycleN, 2), fast = side === 1 ? 1.35 : 1, p = player, sp = h.speed;
-    const pool = ['rook', 'pawns', 'rook', 'bishop', 'knight', 'pawns', 'bishop', 'knight'].slice(0, 3 + lvl * 2);
-    const kind = pool[Math.floor(Math.random() * pool.length)];
+  function attack(side, forced) {
+    const lvl = Math.min(C.round, 3), fast = (side === 1 ? 1.45 : 1.1) + lvl * 0.12, p = player, sp = h.speed;
+    const pool = ['rook', 'pawns', 'bishop', 'knight', 'rook', 'bishop', 'knight', 'pawns'].slice(0, 4 + lvl * 2);
+    const kind = forced || pool[Math.floor(Math.random() * pool.length)];
     if (kind === 'rook') {        // slides straight down your lane
       const lane = p.lane, z = p.z - (sp * 1.9 + 12);
       mark(laneStrip(lane, z, p.z - 3, side === 0 ? IVORY : '#a88ad8'), 1.2);
@@ -183,81 +184,141 @@ export function createChess(h) {
       if (!falling && pc.landed !== true) { pc.landed = true; h.fx?.(0.05, pc.kind === 'pawn' ? 0.1 : 0.25); }
       if (!pc.hurt && p.alive && Math.abs(p.x - pc.x) < 0.7 && Math.abs(p.z - pc.z) < 0.6 && p.y < pc.h + pc.y) {
         pc.hurt = true;
-        h.hurt({ rook: 'Flattened by a rook!', bishop: 'The bishop got you diagonally!', knight: 'Trampled by a knight!', pawn: 'Pushed over by a pawn!' }[pc.kind]);
+        hurt({ rook: 'Flattened by a rook!', bishop: 'The bishop got you diagonally!', knight: 'Trampled by a knight!', pawn: 'Pushed over by a pawn!' }[pc.kind]);
       }
       if (pc.z > p.z + 6 || (pc.life && pc.t > pc.life)) { world.remove(pc.mesh); C.pieces.splice(C.pieces.indexOf(pc), 1); }
     }
     for (const m of [...marks]) { m.t += dt; m.mesh.material.opacity = Math.max(0, 1 - m.t / m.life) * 0.8; if (m.t > m.life) { world.remove(m.mesh); marks.splice(marks.indexOf(m), 1); } }
   }
 
-  // ---------------------------------------------------------------- your move: a knight's path to their king
-  function yourMove() {
-    const p = player, a = p.lane;
-    const r0 = rowAt(p.z - (h.speed * 1.5 + 6));
-    const opts = [0, 1, 2].filter((l) => l !== a), b = opts[Math.floor(Math.random() * opts.length)];
-    const fw = 3 - Math.abs(b - a);              // a knight's L: 2 forward + 1 across, or 1 forward + 2 across
-    const squares = []; for (let i = 0; i < fw; i++) squares.push([a, r0 + i]); squares.push([b, r0 + fw]);
-    const meshes = squares.map(([l, r]) => { const m = new THREE.Mesh(sqGeo, pathMat); m.rotation.x = -Math.PI / 2; m.position.set(LANES[l], 0.05, rowMid(r)); m.layers.set(1); world.add(m); return m; });
-    const kingSide = C.turn % 2;
-    const king = makePiece('king', kingSide === 0); king.scale.setScalar(1.6);
-    const crown = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffcf33', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending })); crown.scale.set(2.2, 2.2, 1); crown.position.y = 1.9; crown.layers.set(1); king.add(crown); king.position.set(LANES[b], 0, rowMid(r0 + fw) - ROW * 0.2); world.add(king);
-    for (const row of C.rows.values()) row.side = null;           // no hot squares on your move
-    C.path = { lane: b, z: king.position.z, king, meshes, done: false, kingSide, t: 0 };
-    h.banner('Your move!', 'follow the gold knight’s path and take their king', 1.8); sfx.echoStart();
+  // ---------------------------------------------------------------- your move, part 1: the promotion race
+  // Run your pawn down eight ranks of the board without a scratch. Every rank glows one sister's colour (and the
+  // colour keeps switching, so the safe lane does too) while pieces keep dropping. Get hit and your pawn is captured:
+  // back to rank 1.
+  const RANKS = 8;
+  const goldMat = new THREE.MeshBasicMaterial({ color: '#e8a92a', transparent: true, opacity: 0.9, depthWrite: false });
+  function hurt(msg) {
+    h.hurt(msg);
+    if (C.race && !C.race.done && player.alive) { const r = C.race; r.done = true; world.remove(r.line); for (const row of C.rows.values()) { row.side = null; row.rank = 0; } C.race = null; C.restarts++; h.banner('Your pawn was captured!', 'back to rank 1', 1.3); h.after(1.5, () => { if (h.isFight() && !C.race && !C.queen) startRace(); }); }
   }
-  function updatePath(dt) {
-    const P = C.path; if (!P) return;
-    P.t += dt; pathMat.opacity = 0.72 + Math.sin(P.t * 8) * 0.18;
-    P.king.rotation.y += dt * 1.2;
-    const p = player;
-    if (!P.done && Math.abs(p.z - P.z) < 0.9 && Math.abs(p.x - LANES[P.lane]) < 0.8 && p.y < 2.2) {
-      P.done = true; sfx.snap(); h.fx?.(0.3, 0.3);
-      P.king.rotation.z = 1.4; P.king.position.y = 0.3;
-      h.banner('Capture!', `${who(P.kingSide)}’s king topples`, 1.4);
-      h.hitBoss(P.kingSide);
-      h.after(1.0, () => clearPath());
-      return;
+  function startRace() {
+    const p = player, id = ++C.raceId;
+    const r0 = rowAt(p.z - (h.speed * 1.25 + 4));
+    let side = Math.random() < 0.5 ? 0 : 1;
+    for (let i = 0; i < RANKS; i++) {
+      const r = r0 + i; if (!C.rows.has(r)) addRow(r);
+      if (i > 0 && Math.random() < 0.6) side = 1 - side;
+      const row = C.rows.get(r); row.side = side; row.hurt = false; row.rank = i + 1;
     }
-    if (!P.done && p.z < P.z - 2) {
-      P.done = true; sfx.offKey(); h.banner('Missed the king…', 'it’s their move again', 1.4);
-      h.after(0.6, () => clearPath()); h.after(1.4, () => { if (h.isFight()) cycle(); });
-    }
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 0.7), goldMat); line.rotation.x = -Math.PI / 2; line.position.set(0, 0.07, C.z0 - (r0 + RANKS) * ROW); line.layers.set(1); world.add(line);
+    C.race = { id, r0, line, done: false };
+    // pieces keep coming the whole way down
+    const n = 2 + Math.min(C.round, 3), span = (RANKS * ROW) / h.speed;
+    for (let i = 0; i < n; i++) h.after(0.35 + i * (span * 0.8 / n), () => { if (C.race && C.race.id === id && !C.race.done && h.isFight()) attack(i % 2, Math.random() < 0.5 ? 'pawns' : 'knight'); });   // only jumpable pieces in the race, so there's always a way through
+    h.banner(C.restarts ? 'Rank 1 again…' : 'Your move: promotion race!', 'reach the gold line at rank 8 without getting hit', 1.6); sfx.echoStart();
   }
-  function clearPath() { if (!C.path) return; world.remove(C.path.king); for (const m of C.path.meshes) world.remove(m); C.path = null; }
+  function updateRace() {
+    const R = C.race; if (!R || R.done) return;
+    const rank = rowAt(player.z) - R.r0 + 1;
+    h.name(`Ivory & Onyx · rank ${Math.max(1, Math.min(RANKS, rank))}/${RANKS}`);
+    goldMat.opacity = 0.65 + Math.sin(performance.now() / 120) * 0.25;
+    if (rank > RANKS) promote();
+  }
 
-  // ---------------------------------------------------------------- turns
+  // ---------------------------------------------------------------- your move, part 2: promotion. You're a queen for a few seconds:
+  // the sisters drop down into the lanes and dodge; line up with one and press jump to strike straight down your lane.
+  function promote() {
+    const R = C.race; R.done = true; world.remove(R.line); C.race = null;
+    for (const row of C.rows.values()) { row.side = null; row.rank = 0; }
+    for (const pc of C.pieces) world.remove(pc.mesh); C.pieces.length = 0;
+    const blitz = C.blitz;
+    C.queen = { t: 0, dur: blitz ? 5.5 : 6.5, lanes: [0, 2], hold: [0, 0], cd: 0, next: [1.4, 0.9], react: blitz ? [0.26, 0.18] : [0.36, 0.24] };
+    queenFx.visible = true; queenFx.scale.setScalar(0.01);
+    h.banner('Promotion!', 'you’re a queen: get in line with a sister and press jump', 2.0); sfx.chord([72, 76, 79, 84]); h.fx?.(0.4, 0.2);
+  }
+  // the queen's crown and glow, worn by Amara
+  const queenFx = new THREE.Group(); queenFx.visible = false;
+  {
+    const gold = toon({ color: '#e8b33a', emissive: new THREE.Color('#ffcf33'), emissiveIntensity: 0.5 });
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.1, 16, 1, true), gold); queenFx.add(band);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, sp = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.14, 6), gold); sp.position.set(Math.cos(a) * 0.16, 0.11, Math.sin(a) * 0.16); queenFx.add(sp); }
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffcf33', transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending })); halo.scale.set(1.6, 1.6, 1); halo.layers.set(1); queenFx.add(halo);
+    queenFx.position.y = 1.72; player.root.add(queenFx);
+  }
+  function queenFire() {
+    const Q = C.queen; if (!Q || Q.cd > 0) return !!Q;
+    Q.cd = 0.5;
+    const lane = player.lane, z0 = player.z - 1, z1 = player.z - 20;
+    const beam = new THREE.Mesh(new THREE.PlaneGeometry(0.7, Math.abs(z1 - z0)), new THREE.MeshBasicMaterial({ color: '#ffcf33', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+    beam.rotation.x = -Math.PI / 2; beam.position.set(LANES[lane], 1.2, (z0 + z1) / 2); beam.layers.set(1); world.add(beam); mark(beam, 0.45);
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(Math.abs(z1 - z0), 3), beam.material.clone()); wall.rotation.y = Math.PI / 2; wall.position.set(LANES[lane], 1.6, (z0 + z1) / 2); wall.layers.set(1); world.add(wall); mark(wall, 0.45);
+    sfx.strike();
+    const s = Q.lanes.indexOf(lane);
+    if (s >= 0) {          // got her!
+      C.queen = null; queenFx.visible = false;
+      h.banner('Capture!', `${who(C.sides ? C.sides[s] : s)} is taken`, 1.4); sfx.snap();
+      h.hitBoss();
+    } else sfx.offKey();
+    return true;
+  }
+  function updateQueen(dt) {
+    const Q = C.queen; if (!Q) return;
+    Q.t += dt; Q.cd -= dt;
+    queenFx.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, dt * 8)); queenFx.rotation.y += dt * 2;
+    h.name(`Ivory & Onyx · queen ${Math.max(0, Math.ceil(Q.dur - Q.t))}s`);
+    for (let s = 0; s < 2; s++) {
+      // the moment you line up with her she slips into another lane (Onyx is quicker about it)
+      Q.hold[s] = player.lane === Q.lanes[s] ? Q.hold[s] + dt : 0; Q.next[s] -= dt;
+      if (Q.hold[s] > Q.react[s] || Q.next[s] <= 0) {
+        const opts = [0, 1, 2].filter((l) => l !== Q.lanes[s] && l !== Q.lanes[1 - s]);
+        Q.lanes[s] = opts[Math.floor(Math.random() * opts.length)]; Q.hold[s] = 0; Q.next[s] = s === 1 ? rand(0.55, 0.95) : rand(0.9, 1.4);
+      }
+    }
+    if (Q.t > Q.dur) {
+      C.queen = null; queenFx.visible = false; sfx.sad();
+      h.banner('Your queen was taken…', 'back to their moves', 1.6);
+      h.after(1.8, () => { if (h.isFight()) cycle(); });
+    }
+  }
+
+  // ---------------------------------------------------------------- their moves
   function slamClock(side) {
     C.slam[side] = 1; sfx.crackWarn();
     const b = side === 0 ? C.bodies?.white : C.bodies?.black;
     if (b) { h.anim(b, 'Cast', { once: true, after: 'Fly', fade: 0.1 }); b.charge = 0.6; if (b.acts.Cast) b.acts.Cast.timeScale = side === 1 ? 1.7 : 1; }
   }
   function sideMove(side, then) {
-    const s = C.sides ? C.sides[side] : side;
+    const s = C.sides ? C.sides[side] : side, lvl = Math.min(C.round, 3);
     slamClock(s);
-    h.banner(`${who(s)}’s move`, s === 0 ? `her ivory squares glow, stand on the dark ones` : `her onyx squares glow, stand on the light ones`, 1.2);
-    colourMove(s, C.blitz ? 3 : 3);
-    h.after(C.blitz ? 0.4 : (s === 1 ? 0.9 : 1.4), () => { if (h.isFight()) attack(s); });
-    h.after(C.blitz ? 3.2 : (s === 1 ? 3.6 : 4.4), () => { if (h.isFight()) then(); });
+    h.banner(`${who(s)}’s move`, s === 0 ? 'her squares glow gold, stand on the dark ones' : 'her squares glow purple, stand on the light ones', 1.1);
+    colourMove(s, 4 + lvl);
+    const quick = s === 1 ? 0.75 : 1;
+    h.after(1.0 * quick, () => { if (h.isFight()) attack(s); });
+    if (lvl >= 1) h.after(2.0 * quick, () => { if (h.isFight()) attack(s); });           // later on: two pieces a move
+    if (lvl >= 3) h.after(2.9 * quick, () => { if (h.isFight()) attack(s); });
+    h.after((4.2 + lvl * 0.5) * quick, () => { if (h.isFight()) then(); });
   }
   function cycle() {
     if (!h.isFight()) return;
-    if (C.blitz) {     // after castling: both of them at once
+    C.turn++; h.name('Ivory & Onyx');
+    if (C.blitz) {     // after castling: they both move at once
       slamClock(0); slamClock(1);
-      h.banner('Blitz!', 'they’re both moving at once', 1.2);
-      colourMove(C.turn % 2, 3);
-      h.after(0.5, () => { if (h.isFight()) attack(0); });
+      h.banner('Blitz!', 'they’re both moving at once', 1.1);
+      colourMove(C.turn % 2, 5);
+      h.after(0.6, () => { if (h.isFight()) attack(0); });
       h.after(1.1, () => { if (h.isFight()) attack(1); });
-      h.after(4.0, () => { if (h.isFight()) { C.turn++; colourMove(C.turn % 2, 2); } });
-      h.after(6.2, () => { if (h.isFight()) yourMove(); });
+      h.after(2.2, () => { if (h.isFight()) attack(1); });
+      h.after(3.6, () => { if (h.isFight()) { slamClock(0); slamClock(1); colourMove((C.turn + 1) % 2, 4); attack(0); } });
+      h.after(5.0, () => { if (h.isFight()) attack(1); });
+      h.after(7.0, () => { if (h.isFight()) startRace(); });
       return;
     }
-    sideMove(0, () => sideMove(1, () => { C.cycleN++; yourMove(); }));
+    sideMove(0, () => sideMove(1, () => startRace()));
   }
-  // after the second capture: castling. They swap places, the board flips, and it's blitz from here on
+  // after the second capture: castling. They swap places, the board flips, and it's blitz from then on
   function castle() {
-    C.blitz = true; C.flip = 1 - C.flip; recolor();
+    C.blitz = true; C.flip = 1 - C.flip; recolor(); C.home = [C.home[1], C.home[0]];
     for (const row of C.rows.values()) row.side = null;
-    if (C.bodies) { const w = C.bodies.white.g.position.x; C.swapT = 0; C.swapFrom = w; }
     h.banner('Castling!', 'they swap sides… and the whole board flips', 2.4); sfx.bossIntro(); h.fx?.(0.45, 0.4);
     h.after(2.6, () => cycle());
   }
@@ -265,35 +326,39 @@ export function createChess(h) {
   // ---------------------------------------------------------------- lifecycle
   function begin(bodies) {
     clear();
-    C.on = true; C.bodies = bodies; C.z0 = player.z - 10; C.flip = 0; C.turn = 0; C.cycleN = 0; C.blitz = false; C.swapT = null;
+    Object.assign(C, { on: true, bodies, z0: player.z - 10, flip: 0, turn: 0, round: 0, cycleN: 0, blitz: false, restarts: 0, raceId: 0, race: null, queen: null, home: [-0.95, 0.95] });
   }
   function start() { cycle(); }
   function afterHit(hp) {
-    clearPath(); C.turn++;
-    if (hp === 1 && !C.blitz) h.after(1.4, () => { if (h.isFight()) castle(); });
-    else if (hp > 0) h.after(1.6, () => { if (h.isFight()) cycle(); });
+    C.round++; C.restarts = 0;
+    for (const b of [C.bodies.white, C.bodies.black]) h.anim(b, 'Hit', { once: true, after: 'Fly', fade: 0.1 });
+    if (hp === 2 && !C.blitz) h.after(1.4, () => { if (h.isFight()) castle(); });
+    else if (hp > 0) h.after(1.8, () => { if (h.isFight()) cycle(); });
   }
   function clear() {
     for (const row of C.rows.values()) world.remove(row.g); C.rows.clear();
     for (const pc of C.pieces) world.remove(pc.mesh); C.pieces.length = 0;
     for (const m of marks) world.remove(m.mesh); marks.length = 0;
-    clearPath(); C.on = false;
+    if (C.race) world.remove(C.race.line); C.race = null; C.queen = null; queenFx.visible = false; C.on = false;
   }
   function update(dt, t, fighting) {
     if (!C.on) return;
     updateBoard(t);
-    if (fighting) { checkSquares(); updatePieces(dt); updatePath(dt); }
+    if (fighting) { checkSquares(); updatePieces(dt); updateRace(); updateQueen(dt); }
     // the floating chess clock between them
     if (C.bodies?.clock) {
       const ck = C.bodies.clock;
       for (let s = 0; s < 2; s++) { C.slam[s] = Math.max(0, C.slam[s] - dt * 3); ck.userData.btn[s].position.y = 0.36 - C.slam[s] * 0.1; }
       ck.userData.hand[C.turn % 2].rotation.z -= dt * (C.blitz ? 9 : 3);
+      ck.visible = !C.queen;
     }
-    // castling: they glide past each other to swap sides
-    if (C.bodies && C.swapT !== null && C.swapT < 1) {
-      C.swapT = Math.min(1, C.swapT + dt / 1.2); const k = C.swapT * C.swapT * (3 - 2 * C.swapT);
-      C.bodies.white.g.position.x = -0.95 + 1.9 * k; C.bodies.black.g.position.x = 0.95 - 1.9 * k;
-      C.bodies.white.g.position.z = Math.sin(k * Math.PI) * 0.8; C.bodies.black.g.position.z = -Math.sin(k * Math.PI) * 0.8;
+    // the sisters: side by side (swapped after castling), or down in the lanes dodging your queen
+    if (C.bodies) {
+      [C.bodies.white, C.bodies.black].forEach((b, s) => {
+        const wx = C.queen ? LANES[C.queen.lanes[s]] / 1.6 : C.home[s], wy = C.queen ? -0.55 : 0;
+        b.g.position.x += (wx - b.g.position.x) * Math.min(1, dt * (C.queen ? 14 : 4));
+        b.g.position.y += (wy - b.g.position.y) * Math.min(1, dt * 6); b.g.position.z += (0 - b.g.position.z) * Math.min(1, dt * 4);
+      });
     }
   }
   function makeClock() {
@@ -310,11 +375,14 @@ export function createChess(h) {
   }
   return {
     begin, start, update, clear, afterHit, makeClock, makePiece,
+    queenFire, get queenOn() { return !!C.queen; },
+    debugPromote() { if (!C.race) startRace(); promote(); },
     get state() {
       if (!C.on) return null;
       const p = player, pr = rowAt(p.z);
       const hot = []; for (let r = pr; r <= pr + 4; r++) { const row = C.rows.get(r); if (row && row.side !== null) hot.push({ r, side: row.side, safe: [0, 1, 2].filter((l) => colorOf(l, r) !== row.side), dz: +(p.z - (C.z0 - r * ROW)).toFixed(1) }); }
-      return { row: pr, flip: C.flip, blitz: C.blitz, turn: C.turn % 2, hot, pieces: C.pieces.map((pc) => ({ kind: pc.kind, x: +pc.x.toFixed(2), dz: +(p.z - pc.z).toFixed(1), y: +pc.y.toFixed(1) })), path: C.path && !C.path.done ? { lane: C.path.lane, dz: +(p.z - C.path.z).toFixed(1) } : null };
+      return { dbg: C.dbg.slice(-4), row: pr, flip: C.flip, blitz: C.blitz, round: C.round, hot, pieces: C.pieces.map((pc) => ({ kind: pc.kind, x: +pc.x.toFixed(2), dz: +(p.z - pc.z).toFixed(1), y: +pc.y.toFixed(1) })),
+        race: C.race && !C.race.done ? { rank: rowAt(p.z) - C.race.r0 + 1, restarts: C.restarts } : null, queen: C.queen ? { lanes: [...C.queen.lanes], left: +(C.queen.dur - C.queen.t).toFixed(1) } : null };
     },
   };
 }

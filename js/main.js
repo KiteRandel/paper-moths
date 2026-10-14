@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=29';
-import { InkPass } from './post.js?v=29';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=29';
-import { createBosses } from './boss.js?v=29';
-import { createShop } from './shop.js?v=29';
-import { createBrief } from './brief.js?v=29';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=30';
+import { InkPass } from './post.js?v=30';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=30';
+import { createBosses } from './boss.js?v=30';
+import { createShop } from './shop.js?v=30';
+import { createBrief } from './brief.js?v=30';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -473,8 +473,10 @@ const boss = createBosses({
   hurt(msg) { hurtPlayer(msg); },
 });
 let lastHurt = '';
+const hurtLog = [];
 function hurtPlayer(msg) {
   if (!player.alive) return;
+  hurtLog.push(msg); if (hurtLog.length > 40) hurtLog.shift();
   if (player.shield > 0) { setBandaids(player.shield - 1); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
   else { lastHurt = msg; die('hit'); }
 }
@@ -513,7 +515,7 @@ const shop = createShop({
 
 // =================================================================== input
 const act = { left() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
-  jump() { if (tut.waiting === 'slide' || brief.on) return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
+  jump() { if (tut.waiting === 'slide' || brief.on) return; if (boss.onJump()) return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
   slide() { if (tut.waiting === 'jump' || brief.on) return; boss.noteAction(); if (tut.waiting === 'slide') { tut.slid = true; tutResolve(); } if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
 // =================================================================== pause (Esc, or the pause button)
 let paused = false;
@@ -725,7 +727,7 @@ new GLTFLoader().load('assets/amara.glb', (gltf) => {
 frame();
 
 window.moths = {
-  get boss() { return boss.state; }, debugWin(k) { boss.won.add(k); }, set noBrief(v) { noBrief = v; }, get briefing() { return brief.on; }, briefPress() { brief.press(); },
+  get boss() { return boss.state; }, get hurts() { return hurtLog.slice(); }, debugWin(k) { boss.won.add(k); }, set noBrief(v) { noBrief = v; }, get briefing() { return brief.on; }, briefPress() { brief.press(); },
   heckle(side) { shop.heckle(side); }, set debugCam(v) { debugCam = v; }, get heckling() { return shop.heckling; }, get bolts() { return shop.hazards().map((h) => ({ lane: h.lane, phase: h.phase, dz: +(player.z - h.z).toFixed(1) })); },
   set shopOff(v) { shopOn = !v; },
   get wallet() { return { wallet, shown: walletShown, fliers: fliers.length }; },
@@ -737,7 +739,7 @@ window.moths = {
     for (const o of [...obstacles]) if (Math.abs(o.box.z0 - z) < 6) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
     addSign(lane, z);
   },
-  crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); },
+  crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); }, promote() { boss.debugPromote(); },
   get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
   resetTutorial() { tut.done = false; try { localStorage.removeItem('paperMoths.tutorial'); } catch (_) { /* ignore */ } },
   bossSkip(n) { boss.skipTo(n); },

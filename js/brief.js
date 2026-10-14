@@ -24,13 +24,13 @@ const GUIDES = {
   },
   chess: {
     name: 'Ivory & Onyx',
-    blurb: 'Prim, polite Ivory and fast, sloppy Onyx are playing chess, and the rooftop is their board. Take turns with them, then take their king.',
+    blurb: 'Prim, polite Ivory and fast, sloppy Onyx are playing chess, and the rooftop is their board. Survive their moves, promote your pawn, and take them down as a queen.',
     steps: [
       { img: 'chess_1', title: 'Watch the board', text: 'On <b>Ivory\u2019s move</b> her cream squares glow and hurt. On <b>Onyx\u2019s move</b> her dark squares do. Only stand on the other colour: weave between the middle and side lanes, or jump a square.' },
       { img: 'chess_2', title: 'Dodge the pieces', text: 'Each move drops a piece that attacks the way it moves. <b>Rooks</b> slide straight down a lane, <b>bishops</b> cut diagonally across, <b>knights</b> hop in L-shapes (watch the rings), and <b>pawns</b> march in a wall with one gap. You can jump the pawns.' },
-      { img: 'chess_3', title: 'Your move!', text: 'A <b class="y">gold knight\u2019s path</b> lights up with their king at the end. Follow the L and run into the king to capture it.' },
+      { img: 'chess_3', title: 'Promote, then strike', text: 'Your move: race your pawn down <b>8 ranks</b> to the <b class="y">gold line</b>. One hit sends you back to rank 1. Reach it and Amara becomes a <b>queen</b>: the sisters drop into the lanes, so get in line with one and press <kbd>jump</kbd> to strike. They dodge the moment you line up, so be quick!' },
     ],
-    win: 'Capture their king <b>3 times</b> for checkmate.',
+    win: 'Capture them <b>4 times</b> for checkmate. It only gets faster from there.'
   },
   duet: {
     name: 'Lilac & Glitch',

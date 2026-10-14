@@ -1,8 +1,8 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=29';
-import { createChess } from './chess.js?v=29';
+import { PAL, T, toon } from './art.js?v=30';
+import { createChess } from './chess.js?v=30';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -42,7 +42,7 @@ export function createBosses(ctx) {
   const chess = createChess({
     scene, world, player, LANES, sfx, get speed() { return ctx.speed; },
     hurt: (m) => ctx.hurt(m), fx: (a, b) => ctx.fx(a, b), after: (s2, fn) => after(s2, fn), banner: (a, b, c) => banner(a, b, c),
-    hitBoss: () => hitBoss(), isFight: () => st.mode === 'fight' && st.kind === 'chess', anim: (b, n, o) => anim(b, n, o),
+    name: (txt) => { ui.name.textContent = txt; }, hitBoss: () => hitBoss(), isFight: () => st.mode === 'fight' && st.kind === 'chess', anim: (b, n, o) => anim(b, n, o),
   });
   function init(gltf) {
     B.tmpl = gltf;
@@ -134,7 +134,7 @@ export function createBosses(ctx) {
   // called by the track generator the first time it lays a quiet block for a pending boss
   function quietStartsAt(z) { if (st.mode === 'pending' && st.startZ === null) st.startZ = z - 4; }
   function begin() {
-    st.mode = 'intro'; timers = []; st.hp = st.maxHp;
+    st.mode = 'intro'; timers = []; st.maxHp = st.kind === 'chess' ? 4 : 3; st.hp = st.maxHp;
     const p = player;
     if (st.kind === 'twins') {
       st.boss = B.twins; B.twins.g.visible = true; st.z = p.z - 60; st.y = 2.5; st.x = 0;
@@ -196,7 +196,7 @@ export function createBosses(ctx) {
     ctx.sparkle(pos, st.kind === 'twins' ? PAL.glow : RED, 22);
     if (st.kind === 'twins') { for (const b of [B.twins.blue, B.twins.orange]) anim(b, 'Hit', { once: true, after: 'Hug', fade: 0.1 }); }
     else if (st.kind === 'duet') { anim(B.duet.lilac, 'Hit', { once: true, after: 'Sing', fade: 0.1 }); B.duet.crack++; }
-    else if (st.kind === 'chess') { for (const b of [B.chess.white, B.chess.black]) anim(b, 'Hit', { once: true, after: 'Fly', fade: 0.1 }); chess.afterHit(st.hp); }
+    else if (st.kind === 'chess') chess.afterHit(st.hp);
     else { anim(B.wrath, 'Hit', { once: true, after: 'Rage', fade: 0.1 }); sfx.giggle(); B.joy.spin = 1; setTimeout(() => sfx.growl(), 500); }
     if (st.hp <= 0) after(0.5, defeated);
   }
@@ -468,6 +468,7 @@ export function createBosses(ctx) {
       let wantZ = p.z - (st.kind === 'twins' ? 15 : st.kind === 'duet' ? 14 : st.kind === 'chess' ? 16 : 12), wantY = st.kind === 'twins' ? 2.2 : st.kind === 'duet' ? 2.3 : st.kind === 'chess' ? 2.0 : 2.6, wantX = st.kind === 'duet' ? -0.9 + Math.sin(t * 0.35) * 0.5 : st.kind === 'chess' ? Math.sin(t * 0.4) * 0.3 : Math.sin(t * 0.7) * 0.9;
       let k = 3;
       let kx = null;
+      if (st.kind === 'chess' && chess.queenOn) { wantZ = p.z - 11; wantY = 1.6; wantX = 0; k = 5; }
       if (st.kind === 'wrath' && st.air) { wantZ = st.air.z; wantY = 2.3; wantX = LANES[st.air.lane]; k = 6; kx = 3.2; }
       else if (st.kind === 'wrath' && st.slam) {
         const s = st.slam; wantX = LANES[s.wrathLane];
@@ -773,9 +774,11 @@ export function createBosses(ctx) {
   return {
     init, reset, update, quiet, quietStartsAt, holeAt,
     noteAction() { lastAct = st.t; },
+    onJump() { return st.kind === 'chess' && st.mode === 'fight' && chess.queenOn ? chess.queenFire() : false; },
     get beaten() { return st.beaten; }, get won() { return st.won; }, get briefing() { return st.mode === 'briefing'; },
     get state() { return { chess: st.kind === 'chess' ? chess.state : null, mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind === 'red' && c.fire ? 'fire' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, fires: r.fires, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, fires: holes.filter((h) => h.flame).length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
     debugCrater(lane, dz, fire) { makeHole(lane, player.z - dz, fire); },
+    debugPromote() { chess.debugPromote(); },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
     // test hook: pretend some bosses were already beaten and the next one is due now
     skipTo(beaten) { st.beaten = beaten; st.nextAt = ctx.dist + 150; },
