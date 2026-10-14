@@ -3,7 +3,7 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=34';
+import { T } from './art.js?v=35';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -178,23 +178,40 @@ export function createPrism(h) {
       } });
       return 1.0 + (player.z - z) / h.speed * 0.8;
     },
-    // Glitch: three strikes down your lane, in rhythm
+    // Lilac & Glitch: she sings a little tune first, each note hovering over a lane (low = left, middle = centre,
+    // high = right). Then Glitch strikes those same lanes, in the same order and rhythm.
     glitch() {
-      flashAura('#3fd45a'); sfx.glitchGo(); h.banner('Glitch!', 'get out of the green lane', 0.8);
-      for (let i = 0; i < 3; i++) h.after(i * 0.7, () => {
+      flashAura('#9a5fe0'); h.banner('Lilac’s song', 'remember the notes: Glitch strikes those lanes', 1.1);
+      const n = 3 + (P.count >= 3 ? 1 : 0), beat = 0.55, melody = [];
+      for (let i = 0; i < n; i++) { let l = Math.floor(Math.random() * 3); if (i && l === melody[i - 1] && Math.random() < 0.6) l = (l + 1 + Math.floor(Math.random() * 2)) % 3; melody.push(l); }
+      const notes = [];
+      melody.forEach((lane, i) => h.after(0.3 + i * beat, () => {
         if (!h.isFight()) return;
-        const lane = player.lane;
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 14), new THREE.MeshBasicMaterial({ color: '#7dff8a', transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
-        m.rotation.x = -Math.PI / 2; m.layers.set(1); h.scene.add(m); sfx.glitch();
-        let t = 0;
-        addFx({ meshes: [m], update(dt) {
-          t += dt; m.position.set(LANES[lane] + (Math.random() - 0.5) * 0.08, 0.07, player.z - 6);
-          if (t < 0.55) { m.material.opacity = Math.random() < 0.5 ? 0.15 : 0.45; return true; }
-          if (!m.userData.hit) { m.userData.hit = true; m.material.opacity = 1; sfx.strike(); h.fx(0.08, 0.25); if (Math.abs(player.x - LANES[lane]) < 0.85) h.hurt('Glitch caught you in her lane!'); }
-          m.material.opacity *= 0.85; return t < 0.9;
+        sfx.sing([72, 76, 79][lane], beat * 0.9);
+        const s = h.noteSprite(1.8); h.scene.add(s);
+        const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 9), new THREE.MeshBasicMaterial({ color: '#b98aff', transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }));
+        stripe.rotation.x = -Math.PI / 2; stripe.layers.set(1); h.scene.add(stripe);
+        const note = { s, lane, t: 0 }; notes.push(note);
+        addFx({ meshes: [s, stripe], update(dt) {
+          note.t += dt; const pop = Math.min(1, note.t * 6);
+          s.position.set(LANES[lane], 2.5 + Math.sin(note.t * 4 + i) * 0.12, player.z - 8); s.scale.setScalar(0.4 + pop * 0.6);
+          stripe.position.set(LANES[lane], 0.06, player.z - 6.5); stripe.material.opacity = 0.2 + Math.abs(Math.sin(note.t * 5)) * 0.2;
+          return !note.done;
         } });
-      });
-      return 3 * 0.7 + 0.7;
+      }));
+      const singEnd = 0.3 + n * beat + 0.8;
+      h.after(singEnd - 0.3, () => { if (h.isFight()) { flashAura('#3fd45a'); sfx.glitchGo(); h.banner('Glitch!', 'dodge the lanes she sang', 0.8); } });
+      melody.forEach((lane, i) => h.after(singEnd + i * beat * 1.1, () => {
+        if (!h.isFight()) return;
+        const note = notes.find((q) => q.lane === lane && !q.done); if (note) note.done = true;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 14), new THREE.MeshBasicMaterial({ color: '#7dff8a', transparent: true, opacity: 1, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+        m.rotation.x = -Math.PI / 2; m.layers.set(1); h.scene.add(m);
+        sfx.strike(); h.fx(0.08, 0.25);
+        if (Math.abs(player.x - LANES[lane]) < 0.85) h.hurt('Glitch caught you in her lane!');
+        let t = 0;
+        addFx({ meshes: [m], update(dt) { t += dt; m.position.set(LANES[lane] + (Math.random() - 0.5) * 0.1, 0.07, player.z - 6); m.material.opacity = Math.max(0, 1 - t / 0.4); return t < 0.4; } });
+      }));
+      return singEnd + n * beat * 1.1 + 0.4;
     },
     // Ivory & Onyx: a stretch of glowing chess squares; stand on the other colour
     chess() {
@@ -279,6 +296,7 @@ export function createPrism(h) {
   }
   return {
     init, begin, start, update, afterHit, defeated, clear,
+    debugAttack(k) { return ATTACK[k](); },
     get group() { return P.g; }, get locked() { return !!P.locked; },
     get state() { return P.on ? { attack: P.attack ? P.attack.kind : null, fxN: fx.length, locked: !!P.locked, phase: P.phase, stage: P.stage, count: P.count, need: NEED[P.stage], ball: P.ball ? { dir: P.ball.dir, left: +(P.ball.T - P.ball.t).toFixed(2), T: +P.ball.T.toFixed(2) } : null } : null; },
   };

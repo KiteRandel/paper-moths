@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=34';
-import { InkPass } from './post.js?v=34';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=34';
-import { createBosses } from './boss.js?v=34';
-import { createShop } from './shop.js?v=34';
-import { createBrief } from './brief.js?v=34';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=35';
+import { InkPass } from './post.js?v=35';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=35';
+import { createBosses } from './boss.js?v=35';
+import { createShop } from './shop.js?v=35';
+import { createBrief } from './brief.js?v=35';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -765,7 +765,7 @@ window.moths = {
     for (const o of [...obstacles]) if (Math.abs(o.box.z0 - z) < 6) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
     addSign(lane, z);
   },
-  crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); }, promote() { boss.debugPromote(); },
+  crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); }, promote() { boss.debugPromote(); }, prismAttack(k) { return boss.debugPrismAttack(k); },
   get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
   resetTutorial() { tut.done = false; try { localStorage.removeItem('paperMoths.tutorial'); } catch (_) { /* ignore */ } },
   bossSkip(n) { boss.skipTo(n); },

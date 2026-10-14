@@ -1,9 +1,9 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=34';
-import { createChess } from './chess.js?v=34';
-import { createPrism } from './prism.js?v=34';
+import { PAL, T, toon } from './art.js?v=35';
+import { createChess } from './chess.js?v=35';
+import { createPrism } from './prism.js?v=35';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -50,7 +50,7 @@ export function createBosses(ctx) {
     hurt: (m) => ctx.hurt(m), fx: (a, b) => ctx.fx(a, b), after: (s2, fn) => after(s2, fn), banner: (a, b, c) => banner(a, b, c),
     name: (txt) => { ui.name.textContent = txt; }, hitBoss: () => hitBoss(), isFight: () => st.mode === 'fight' && st.kind === 'prism', anim: (b, n, o) => anim(b, n, o),
     addObstacle: (k, l, z) => ctx.addObstacle?.(k, l, z),
-    scene, get waveTex() { return waveTex; }, makeHole: (l, z, f) => makeHole(l, z, f), lastAct: () => lastAct, now: () => st.t,
+    scene, get waveTex() { return waveTex; }, makeHole: (l, z, f) => makeHole(l, z, f), lastAct: () => lastAct, now: () => st.t, noteSprite: (sz) => noteSprite(sz),
   });
   function init(gltf) {
     B.tmpl = gltf;
@@ -844,6 +844,7 @@ export function createBosses(ctx) {
     get state() { return { prism: st.kind === 'prism' ? prism.state : null, chess: st.kind === 'chess' ? chess.state : null, mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind === 'red' && c.fire ? 'fire' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, fires: r.fires, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, blue: w.blueLanes, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, fires: holes.filter((h) => h.flame).length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
     debugCrater(lane, dz, fire) { makeHole(lane, player.z - dz, fire); },
     debugPromote() { chess.debugPromote(); },
+    debugPrismAttack(k) { return prism.debugAttack(k); },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
     // test hook: pretend some bosses were already beaten and the next one is due now
     skipTo(beaten) { st.beaten = beaten; st.nextAt = ctx.dist + 150; },
