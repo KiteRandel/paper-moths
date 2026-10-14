@@ -1,7 +1,7 @@
 // The shop: a SHOP sign that sometimes stands over a lane, and the little store behind it. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=24';
+import { PAL, T, toon } from './art.js?v=25';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const PINK = '#ff7fb6', PINK_SOFT = '#ffc2dc', PINK_DEEP = '#c94f86';
@@ -12,15 +12,16 @@ function paintSign(c, text, sub) {
   g.clearRect(0, 0, w, h);
   g.fillStyle = PAL.paper; g.strokeStyle = PAL.ink; g.lineWidth = 7;
   g.beginPath(); g.roundRect(6, 6, w - 12, h - 12, 18); g.fill(); g.stroke();
-  g.strokeStyle = PINK; g.lineWidth = 4; g.beginPath(); g.roundRect(16, 16, w - 32, h - 32, 12); g.stroke();
+  g.strokeStyle = PAL.mauve; g.lineWidth = 2.5; g.setLineDash([9, 6]); g.beginPath(); g.roundRect(16, 16, w - 32, h - 32, 12); g.stroke(); g.setLineDash([]);
   g.fillStyle = PAL.ink; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.font = `800 ${Math.round(h * (sub ? 0.4 : 0.5))}px 'Shippori Mincho B1', Georgia, serif`;
   g.fillText(text, w / 2, h * (sub ? 0.42 : 0.53));
-  if (sub) { g.fillStyle = PINK_DEEP; g.font = `700 ${Math.round(h * 0.17)}px 'Zen Maru Gothic', sans-serif`; g.fillText(sub, w / 2, h * 0.76); }
-  // little hearts in the corners
-  g.fillStyle = PINK;
+  if (sub) { g.fillStyle = PAL.mauve; g.font = `700 ${Math.round(h * 0.17)}px 'Zen Maru Gothic', sans-serif`; g.fillText(sub, w / 2, h * 0.76); }
+  // little ink moths in the corners
+  g.strokeStyle = PAL.ink; g.fillStyle = PAL.cream; g.lineWidth = 2;
   for (const [x, y] of [[34, 34], [w - 34, 34], [34, h - 34], [w - 34, h - 34]]) {
-    g.beginPath(); g.moveTo(x, y + 6); g.bezierCurveTo(x - 12, y - 4, x - 4, y - 12, x, y - 4); g.bezierCurveTo(x + 4, y - 12, x + 12, y - 4, x, y + 6); g.fill();
+    for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(x + sx * 6, y - 2, 6, 4, sx * 0.5, 0, 7); g.fill(); g.stroke(); g.beginPath(); g.ellipse(x + sx * 4, y + 5, 3.5, 3, -sx * 0.4, 0, 7); g.fill(); g.stroke(); }
+    g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x, y + 7); g.stroke();
   }
 }
 function signTexture(text, sub, w = 512, h = 220) {
@@ -34,9 +35,10 @@ export function createShop(ctx) {
   // ctx: { renderer, ink, sfx, bgOnly, wallet: { get(), spend(n) }, bandaids: { get(), add(n), max }, onLeave() }
   const { sfx, bgOnly } = ctx;
   const PRICE = { bandaid: 3000, scissors: 5000 };
+  const KEEPER_SCALE = 1.75, HECKLER_SCALE = 1.9;   // she's bigger than everyone else
   const signTex = signTexture('SHOP', null, 512, 200);
-  const mDark = toon({ color: PAL.umber }), mPink = toon({ color: PINK_SOFT, side: THREE.DoubleSide, emissive: new THREE.Color(PINK), emissiveIntensity: 0.25 });
-  const mHem = toon({ color: PINK_DEEP, side: THREE.DoubleSide });
+  const mDark = toon({ color: PAL.umber }), mPink = toon({ color: '#c0938a', side: THREE.DoubleSide, emissive: new THREE.Color('#d9a59a'), emissiveIntensity: 0.2 });
+  const mHem = toon({ color: PAL.umber, side: THREE.DoubleSide });
 
   // ---------------------------------------------------------------- the sign on the roof (an archway with a pink curtain you run through)
   function makeSign() {
@@ -51,7 +53,7 @@ export function createShop(ctx) {
       s.position.set(-0.53 + i * 0.53, 2.55, 0); g.add(s); strips.push(s);
       const hem = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.08), mHem); hem.position.set(0, -0.82, 0.005); s.add(hem);
     }
-    const glow = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending })));
+    const glow = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending })));
     glow.scale.set(3.2, 2.2, 1); glow.position.y = 2.9; g.add(glow);
     g.userData = { strips, glow };
     return g;
@@ -64,35 +66,41 @@ export function createShop(ctx) {
 
   // ---------------------------------------------------------------- the store
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#d9b8ad');
-  scene.add(new THREE.HemisphereLight('#fff0e6', '#7a5a58', 1.4));
-  const key = new THREE.DirectionalLight('#ffe2d2', 1.4); key.position.set(3, 6, 5); scene.add(key);
+  scene.background = new THREE.Color('#c9b3a4');
+  scene.add(new THREE.HemisphereLight('#f3e3d2', '#6b5650', 1.35));
+  const key = new THREE.DirectionalLight('#ffe6cc', 1.5); key.position.set(3, 6, 5); scene.add(key);
   const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 60);
   addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 66 : 50; camera.updateProjectionMatrix(); });
   camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 0.8 ? 66 : 50; camera.updateProjectionMatrix();
 
-  const paper = (() => {   // striped pink wallpaper with tiny moth-dust dots
-    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
-    g.fillStyle = '#f1dfd8'; g.fillRect(0, 0, 128, 128);
-    g.fillStyle = '#e9c3cf'; for (let x = 0; x < 128; x += 32) g.fillRect(x, 0, 12, 128);
-    g.fillStyle = 'rgba(160,90,110,.35)'; for (let y = 8; y < 128; y += 32) for (let x = 22; x < 128; x += 32) { g.beginPath(); g.arc(x, y + (x % 64 ? 16 : 0), 2.2, 0, 7); g.fill(); }
+  const paper = (() => {   // sketchbook wallpaper: warm paper, pencil hatching and little ink moth doodles
+    const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+    g.fillStyle = '#d8c8b8'; g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(113,91,81,${Math.random() * 0.08})`; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }   // paper grain
+    g.strokeStyle = 'rgba(83,61,55,.22)'; g.lineWidth = 1.2;
+    for (let x = 0; x < 256; x += 64) for (let k = 0; k < 7; k++) { const xx = x + 6 + k * 3 + Math.random(); g.beginPath(); g.moveTo(xx, 0); g.lineTo(xx + rand(-1.5, 1.5), 256); g.stroke(); }   // hatched stripes
+    g.strokeStyle = 'rgba(58,42,38,.45)'; g.lineWidth = 1.6;
+    for (const [x, y] of [[48, 60], [176, 140], [112, 220], [230, 30]]) {     // doodled moths
+      for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(x + sx * 7, y, 7, 5, sx * 0.5, 0, 7); g.stroke(); g.beginPath(); g.ellipse(x + sx * 5, y + 7, 4, 3, -sx * 0.4, 0, 7); g.stroke(); }
+      g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x, y + 9); g.stroke();
+    }
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
   })();
   const mWood = toon({ map: T.wood }), mWall = toon({ map: paper }), mCream = toon({ color: PAL.cream }), mPaper = toon({ color: PAL.paper }), mTan = toon({ color: PAL.tan });
   const uvs = (geo, su, sv) => { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv); return geo; };
   const floor = new THREE.Mesh(uvs(new THREE.PlaneGeometry(14, 10), 3, 2), mWood); floor.rotation.x = -Math.PI / 2; floor.position.z = 1; scene.add(floor);
-  const back = new THREE.Mesh(uvs(new THREE.PlaneGeometry(14, 7), 9, 4.5), mWall); back.position.set(0, 3.5, -3); scene.add(back);
-  for (const s of [-1, 1]) { const side = new THREE.Mesh(uvs(new THREE.PlaneGeometry(10, 7), 6, 4.5), mWall); side.position.set(s * 5, 3.5, 1); side.rotation.y = -s * Math.PI / 2; scene.add(side); }
-  // pink wainscot along the back wall
-  const trim = new THREE.Mesh(new THREE.BoxGeometry(14, 1.1, 0.08), toon({ color: '#e7a9c0' })); trim.position.set(0, 0.55, -2.96); scene.add(trim);
+  const back = new THREE.Mesh(uvs(new THREE.PlaneGeometry(14, 8), 4.5, 2.6), mWall); back.position.set(0, 4, -3); scene.add(back);
+  for (const s of [-1, 1]) { const side = new THREE.Mesh(uvs(new THREE.PlaneGeometry(10, 8), 3.2, 2.6), mWall); side.position.set(s * 5, 4, 1); side.rotation.y = -s * Math.PI / 2; scene.add(side); }
+  // dark wood wainscot along the back wall
+  const trim = new THREE.Mesh(uvs(new THREE.BoxGeometry(14, 1.1, 0.08), 6, 1), toon({ map: T.wood, color: '#a08a7c' })); trim.position.set(0, 0.55, -2.96); scene.add(trim);
   // shelves full of jars, bandage rolls and boxes
   for (const [y, w] of [[1.55, 5.4], [2.35, 5.4]]) {
     const shelf = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, 0.45), mWood); shelf.position.set(0, y, -2.75); scene.add(shelf);
     for (let x = -w / 2 + 0.3; x < w / 2 - 0.2; x += rand(0.32, 0.5)) {
       const r = Math.random(); let m;
       if (r < 0.35) { m = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.13, 14), mPaper); m.rotation.z = Math.PI / 2; m.position.y = y + 0.16; }   // bandage roll
-      else if (r < 0.7) { m = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.11, 0.28, 12), toon({ color: [PINK_SOFT, PAL.cream, PAL.ember][Math.floor(rand(0, 3))] })); m.position.y = y + 0.18; }   // jar
-      else { m = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.2), toon({ color: [PAL.rose, '#e7a9c0', PAL.tan][Math.floor(rand(0, 3))] })); m.position.y = y + 0.14; m.rotation.y = rand(-0.3, 0.3); }
+      else if (r < 0.7) { m = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.11, 0.28, 12), toon({ color: [PAL.rose, PAL.cream, PAL.ember, PAL.tan][Math.floor(rand(0, 4))] })); m.position.y = y + 0.18; }   // jar
+      else { m = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, 0.2), toon({ color: [PAL.dusk, PAL.mauve, PAL.tan][Math.floor(rand(0, 3))] })); m.position.y = y + 0.14; m.rotation.y = rand(-0.3, 0.3); }
       m.position.x = x; m.position.z = -2.72; scene.add(m);
     }
   }
@@ -102,27 +110,27 @@ export function createShop(ctx) {
     const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); gl.position.copy(jar.position); scene.add(gl);
   }
   // hanging paper lanterns
-  const lMat = new THREE.MeshToonMaterial({ map: T.lantern, color: '#ffd6e6', emissive: new THREE.Color(PINK), emissiveIntensity: 0.45 });
+  const lMat = new THREE.MeshToonMaterial({ map: T.lantern, emissive: new THREE.Color(PAL.ember), emissiveIntensity: 0.7 });
   const lanterns = [];
-  for (const x of [-2.6, -0.9, 0.9, 2.6]) {
+  for (const x of [-3.2, -2.2, 2.2, 3.2]) {
     const l = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.42, 14), lMat); l.position.set(x, 4.2, -1.2); scene.add(l); lanterns.push(l);
     const str = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 1.4, 4), mDark); str.position.set(x, 5.1, -1.2); scene.add(str);
-    const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffc0d8', transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.6); gl.position.copy(l.position); scene.add(gl);
+    const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.6); gl.position.copy(l.position); scene.add(gl);
   }
   // the counter, with a bandaid and a pair of scissors on display
   const counter = new THREE.Group(); counter.position.set(0, 0, -0.75); scene.add(counter);
   const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.95, 0.8), mWood); body.position.y = 0.475; counter.add(body);
   const top = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.08, 0.95), mCream); top.position.y = 0.99; counter.add(top);
-  const front = new THREE.Mesh(new THREE.BoxGeometry(3.62, 0.22, 0.02), toon({ color: '#e7a9c0' })); front.position.set(0, 0.72, 0.41); counter.add(front);
-  const display = new THREE.Group(); display.position.set(0.55, 1.22, 0.1); counter.add(display);
+  const front = new THREE.Mesh(new THREE.BoxGeometry(3.62, 0.22, 0.02), toon({ color: PAL.cocoa })); front.position.set(0, 0.72, 0.41); counter.add(front);
+  const display = new THREE.Group(); display.position.set(0.95, 1.22, 0.1); counter.add(display);
   { // a fat bandage roll with a tail, like the pickups on the roof
     const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.2, 18), mPaper); roll.rotation.z = Math.PI / 2; display.add(roll);
     const core = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.21, 10), mTan); core.rotation.z = Math.PI / 2; display.add(core);
     const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); display.add(gl);
   }
-  const snips = new THREE.Group(); snips.position.set(1.35, 1.24, 0.1); counter.add(snips);
+  const snips = new THREE.Group(); snips.position.set(1.55, 1.24, 0.1); counter.add(snips);
   { // paper scissors: two silver blades crossed in an X, with pink finger loops
-    const blade = toon({ color: '#e4e4ec', emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.15 }), loop = toon({ color: PINK, emissive: new THREE.Color(PINK), emissiveIntensity: 0.2 });
+    const blade = toon({ color: '#e4e4ec', emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.15 }), loop = toon({ color: PAL.rose });
     for (const sgn of [-1, 1]) {
       const arm = new THREE.Group(); arm.rotation.z = sgn * 0.32; snips.add(arm);
       const b = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.36, 0.02), blade); b.position.y = 0.16; arm.add(b);
@@ -130,15 +138,21 @@ export function createShop(ctx) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.022, 6, 16), loop); ring.position.set(sgn * 0.02, -0.1, 0); arm.add(ring);
     }
     const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8), mDark); pin.rotation.x = Math.PI / 2; pin.position.y = -0.02; snips.add(pin);
-    const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: '#ffd6e6', transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); snips.add(gl);
+    const gl = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PAL.glow, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending }))); gl.scale.setScalar(1.1); snips.add(gl);
   }
-  for (const [txt, x] of [['3000', 0.55], ['5000', 1.35]]) {
+  for (const [txt, x] of [['3000', 0.95], ['5000', 1.55]]) {
     const tag = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.2), new THREE.MeshBasicMaterial({ map: signTexture(txt, null, 230, 96), transparent: true })); tag.position.set(x, 1.06, 0.5); tag.rotation.x = -0.5; counter.add(tag);
   }
   // a little bell and a sleepy plant on the counter
   const bell = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), toon({ color: PAL.ember })); bell.position.set(-1.2, 1.03, 0.15); counter.add(bell);
   const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.09, 0.2, 10), toon({ color: PAL.rose })); pot.position.set(-1.55, 1.13, -0.05); counter.add(pot);
-  for (let i = 0; i < 5; i++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), toon({ color: '#8d9a6e' })); leaf.scale.set(0.6, 1.4, 0.6); leaf.position.set(-1.55 + Math.cos(i * 1.3) * 0.07, 1.33, -0.05 + Math.sin(i * 1.3) * 0.07); leaf.rotation.z = Math.cos(i * 1.3) * 0.5; counter.add(leaf); }
+  for (let i = 0; i < 5; i++) { const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), toon({ color: '#857f62' })); leaf.scale.set(0.6, 1.4, 0.6); leaf.position.set(-1.55 + Math.cos(i * 1.3) * 0.07, 1.33, -0.05 + Math.sin(i * 1.3) * 0.07); leaf.rotation.z = Math.cos(i * 1.3) * 0.5; counter.add(leaf); }
+
+  const SEAT = 1.8;   // a tall stool behind the counter, so she can sit and look down at you
+  { const stool = new THREE.Group(); stool.position.set(0, 0, -1.95); scene.add(stool);
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.38, 0.1, 18), mWood); top.position.y = SEAT - 0.05; stool.add(top);
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.6; const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, SEAT, 6), mDark); leg.position.set(Math.cos(a) * 0.28, SEAT / 2 - 0.05, Math.sin(a) * 0.28); leg.rotation.set(Math.sin(a) * 0.08, 0, -Math.cos(a) * 0.08); stool.add(leg); }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.02, 6, 20), mDark); ring.rotation.x = Math.PI / 2; ring.position.y = SEAT * 0.4; stool.add(ring); }
 
   // ---------------------------------------------------------------- the pink Amara shopkeeper and Amara as the customer
   const P = { keeper: null, customer: null, mixers: [] };
@@ -159,9 +173,9 @@ export function createShop(ctx) {
   function init(gltf) {
     const pink = skClone(gltf.scene);
     pink.traverse((o) => { if (!o.isMesh) return; o.frustumCulled = false; o.material = toon({ map: o.material.map, color: PINK_SOFT, emissive: new THREE.Color(PINK), emissiveIntensity: 0.35 }); });
-    pink.position.set(0, 0, -1.7); pink.rotation.y = Math.PI; scene.add(pink);
-    const aura = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending }))); aura.position.set(0, 1.0, -1.75); aura.scale.set(2.4, 2.8, 1); scene.add(aura);
-    P.keeper = rig(pink, gltf); anim(P.keeper, 'Idle', { fade: 0 });
+    pink.scale.setScalar(KEEPER_SCALE); pink.position.set(0, SEAT - 0.5 * KEEPER_SCALE, -1.95); pink.rotation.y = Math.PI; scene.add(pink);
+    const aura = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, opacity: 0.25, depthWrite: false, blending: THREE.AdditiveBlending }))); aura.position.set(0, SEAT + 0.7, -2.0); aura.scale.set(3.2, 3.6, 1); scene.add(aura);
+    P.keeper = rig(pink, gltf); anim(P.keeper, 'Perch', { fade: 0 });
     const me = skClone(gltf.scene);
     me.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     me.position.set(-1.15, 0, 0.75); me.rotation.y = -0.5; scene.add(me);
@@ -170,11 +184,10 @@ export function createShop(ctx) {
     if (ctx.mainScene) {
       const r = skClone(gltf.scene);
       r.traverse((o) => { if (!o.isMesh) return; o.frustumCulled = false; o.material = toon({ map: o.material.map, color: PINK_SOFT, emissive: new THREE.Color(PINK), emissiveIntensity: 0.45 }); });
-      const lie = new THREE.Group(); lie.add(r); r.position.x = 0; lie.rotation.z = Math.PI / 2; lie.position.x = 0.85;
-      const g = new THREE.Group(); g.add(lie);
-      const aura = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }))); aura.position.y = 0.9; aura.scale.set(2.4, 3, 1); g.add(aura);
-      g.scale.setScalar(1.25); g.visible = false; ctx.mainScene.add(g);
-      const rb = rig(r, gltf); P.mixers.pop(); rb.g = g; H.b = rb; H.lie = lie;
+      const g = new THREE.Group(); g.add(r);
+      const aura = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: T.glow, color: PINK, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }))); aura.position.y = 0.6; aura.scale.set(2.4, 2.6, 1); g.add(aura);
+      g.scale.setScalar(HECKLER_SCALE); g.visible = false; ctx.mainScene.add(g);
+      const rb = rig(r, gltf); P.mixers.pop(); rb.g = g; H.b = rb;
     }
   }
 
@@ -236,7 +249,7 @@ export function createShop(ctx) {
     const p = ctx.player;
     H.on = true; H.leaving = false; H.t = 0; H.said = 0; H.side = side || (Math.random() < 0.5 ? -1 : 1); H.nextDrop = 2.4;
     H.b.g.visible = true; H.b.g.position.set(H.side * 3, 8, p.z + 5);
-    anim(H.b, 'Lounge', { fade: 0 }); sfx.giggle();
+    anim(H.b, 'Perch', { fade: 0 }); sfx.giggle();
     setTimeout(() => { if (H.on) heckleSay('missed'); }, 500);
   }
   function stopHeckle(say = true) {
@@ -265,7 +278,7 @@ export function createShop(ctx) {
       cloud.scale.set(5, 2.5, 1); cloud.position.set(x, 11, z); ctx.mainScene.add(cloud);
       H.strikes.push({ lane: l, x, z, t: 0, phase: 'warn', ring, cloud, bolt: null, scorch: null, flare: null, hurt: false });
     }
-    sfx.crackle();
+    sfx.crackle(); anim(H.b, 'Cast', { once: true, after: 'Perch', fade: 0.12 });
     if (H.said < 6 && Math.random() < 0.5) { heckleSay('drop'); H.said++; }
     return true;
   }
@@ -314,10 +327,9 @@ export function createShop(ctx) {
     if (!H.leaving && (H.t > ACTIVE + 0.5 || !ctx.canHeckle())) stopHeckle(H.t > ACTIVE + 0.5);
     let want;
     if (H.leaving) want = new THREE.Vector3(H.side * 7, 10, p.z - 4);
-    else want = new THREE.Vector3(H.side * (3.4 + Math.sin(H.t * 0.7) * 0.2), 3.1 + Math.sin(H.t * 1.6) * 0.3, p.z - 5.5);
+    else want = new THREE.Vector3(H.side * (3.7 + Math.sin(H.t * 0.7) * 0.2), 2.1 + Math.sin(H.t * 1.6) * 0.25, p.z - 6);
     g.position.lerp(want, Math.min(1, dt * (H.leaving ? 1.4 : 3)));
     g.rotation.y = Math.PI - H.side * 0.35; g.rotation.x = Math.sin(H.t * 1.1) * 0.05;
-    H.lie.rotation.z = Math.PI / 2 + Math.sin(H.t * 1.3) * 0.05;
     if (!H.leaving && H.t > H.nextDrop && H.t < ACTIVE) { H.nextDrop = H.t + (strike() ? rand(1.1, 1.6) : 0.3); }
     if (H.leaving && H.t > ACTIVE + 3.5) { H.on = false; g.visible = false; }
     // keep her speech bubble over her
@@ -332,14 +344,15 @@ export function createShop(ctx) {
   const ui = { root: $('shop'), say: $('shopSay'), have: { bandaid: $('shopHave'), scissors: $('shopHaveS') }, buy: { bandaid: $('buyBand'), scissors: $('buySnip') }, leave: $('leaveBtn'), fade: $('fade') };
   const S = { open: false, t: 0, busy: false };
   const LINES = {
-    hello: ['Welcome in! Mind the moth dust.', 'Oh, a customer! Come in, come in.', 'You look like you could use a bandaid.', 'Back again? I saved you the good ones.'],
-    bought: ['Thank you~ stay safe up there!', 'One bandaid, wrapped with love.', 'That one’s extra sticky. Good luck!', 'Pleasure doing business!'],
-    broke: ['Hmm, you’ll need a few more moths for that.', 'Come back with more moths, sweet pea!', 'Not quite enough moths yet…'],
-    full: ['You can only carry three, silly!', 'Your pockets are full already!'],
-    fullBand: ['You\u2019ve already got one on, silly!', 'One bandaid at a time, sweet pea.', 'Use that one up first!'],
-    snipped: ['Snip snip! Nothing can stop you now.', 'My sharpest pair, just for you~', 'They’ll cut through anything. Probably.', 'Ooh, big spender!'],
-    bye: ['Bye bye! Don’t trip!', 'See you on the rooftops!'],
+    hello: ['Oh. A customer. Great.', '*sigh* Welcome, I guess.', 'Buy something or don\u2019t.', 'Mm. Look around, whatever.', 'You again.'],
+    bought: ['Mm. Thanks.', 'Whatever keeps you alive.', 'Try not to waste it.', 'Wow. Riveting purchase.'],
+    broke: ['You can\u2019t afford that. Obviously.', 'Come back with more moths.', 'Not enough moths. Shocking.'],
+    full: ['You can only carry three.', 'Your pockets are full. Go away.'],
+    fullBand: ['You\u2019ve already got one on.', 'One bandaid at a time. Rules.', 'Use that one up first.'],
+    snipped: ['Snip snip. Yay.', 'Don\u2019t run with those.', 'Oh, big spender. How thrilling.'],
+    bye: ['Finally.', 'Bye. Don\u2019t trip.', 'Mm-hm. Bye.'],
   };
+
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
   let sayT = null;
   function say(kind) {
@@ -360,9 +373,8 @@ export function createShop(ctx) {
     if (!S.open || S.busy) return;
     const it = ITEMS[kind], st = it.stock();
     if (st.get() >= st.max) { say(kind === 'bandaid' ? 'fullBand' : 'full'); sfx.offKey(); return; }
-    if (!ctx.wallet.spend(PRICE[kind])) { say('broke'); sfx.offKey(); anim(P.keeper, 'Idle'); return; }
+    if (!ctx.wallet.spend(PRICE[kind])) { say('broke'); sfx.offKey(); return; }
     st.add(1); sfx.power(); if (kind === 'scissors') sfx.snap(); say(it.line);
-    anim(P.keeper, 'Clap', { once: true, after: 'Idle' });
     it.show().scale.setScalar(1.35);
     refresh();
   }
@@ -371,13 +383,12 @@ export function createShop(ctx) {
     S.busy = true; ui.fade.classList.add('on'); sfx.bell();
     setTimeout(() => {
       S.open = true; S.t = 0; ui.root.classList.remove('hidden'); document.body.classList.add('shopping'); refresh(); say('hello');
-      anim(P.keeper, 'Cheer', { once: true, after: 'Idle', fade: 0.05 });
       ui.fade.classList.remove('on'); setTimeout(() => { S.busy = false; }, 300);
     }, 380);
   }
   function leave() {
     if (!S.open || S.busy) return;
-    S.busy = true; say('bye'); sfx.click(); anim(P.keeper, 'Twirl');
+    S.busy = true; say('bye'); sfx.click();
     setTimeout(() => {
       ui.fade.classList.add('on');
       setTimeout(() => {
@@ -404,8 +415,8 @@ export function createShop(ctx) {
     snips.rotation.y -= dt * 1.2; snips.position.y = 1.24 + Math.sin(S.t * 2.5 + 1.5) * 0.04; snips.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, dt * 6));
     lanterns.forEach((l, i) => { l.rotation.z = Math.sin(S.t * 1.3 + i) * 0.06; });
     // a slow, gentle drift of the camera
-    camera.position.set(0.45 + Math.sin(S.t * 0.25) * 0.2, 1.75, 3.3);
-    camera.lookAt(0.05, 1.5, -1.4);
+    camera.position.set(0.45 + Math.sin(S.t * 0.25) * 0.2, 1.7, 3.6);
+    camera.lookAt(0.1, 2.05, -1.4);
   }
   function render(ink, t) { ink.render(scene, camera, t); }
 

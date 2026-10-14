@@ -85,11 +85,11 @@
     @media (max-width: 760px) { #wallet { bottom: 12px; } body.bossing #wallet { bottom: 96px; } }
     /* the shop */
     body.shopping #hud, body.shopping #combo { display: none; }
-    #heckle { position: fixed; left: 0; top: 0; max-width: 260px; padding: 8px 14px; font-weight: 700; font-size: 16px; text-align: center; color: #8a2a5a; border-color: #a8386d; pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 4; white-space: normal; }
+    #heckle { position: fixed; left: 0; top: 0; max-width: 260px; padding: 8px 14px; font-weight: 700; font-size: 16px; text-align: center; color: var(--ink); border-color: var(--ink); pointer-events: none; opacity: 0; transition: opacity .2s; z-index: 4; white-space: normal; }
     #heckle.on { opacity: 1; }
-    #heckle::after { content: ''; position: absolute; left: 50%; bottom: -11px; width: 16px; height: 16px; background: var(--paper); border-right: 2.5px solid #a8386d; border-bottom: 2.5px solid #a8386d; transform: translateX(-50%) rotate(45deg); }
+    #heckle::after { content: ''; position: absolute; left: 50%; bottom: -11px; width: 16px; height: 16px; background: var(--paper); border-right: 2.5px solid var(--ink); border-bottom: 2.5px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
     body.shopping #heckle { display: none; }
-    #fade { position: fixed; inset: 0; background: #f3e4ea; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 8; }
+    #fade { position: fixed; inset: 0; background: #efe6da; opacity: 0; pointer-events: none; transition: opacity .35s; z-index: 8; }
     #fade.on { opacity: 1; }
     #shop { position: fixed; inset: 0; pointer-events: none; }
     #shopTitle { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); padding: 6px 20px; font-family: 'Shippori Mincho B1', serif; font-weight: 800; font-size: 22px; color: #a8386d; }
@@ -98,12 +98,12 @@
     #shopSay.pop { animation: bump .25s; }
     .shopPanel { position: fixed; left: 18px; bottom: 18px; width: min(360px, calc(100vw - 36px)); padding: 14px 16px; pointer-events: auto; }
     .shopPanel h2 { margin: 0 0 8px; font-family: 'Shippori Mincho B1', serif; font-size: 18px; }
-    .item { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 8px; border: 2px dashed var(--rose); border-radius: 12px; background: rgba(255,194,220,.25); }
+    .item { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; padding: 8px; border: 2px dashed var(--rose); border-radius: 12px; background: rgba(201,168,140,.18); }
     .item .ic { font-size: 34px; text-align: center; }
     .item b { font-family: 'Shippori Mincho B1', serif; font-size: 18px; }
     .item small { display: block; font-size: 13px; opacity: .8; }
-    .buy { padding: 8px 12px; background: #c94f86; white-space: nowrap; font-size: 16px; }
-    .buy:hover { background: #a8386d; }
+    .buy { padding: 8px 12px; background: var(--umber); white-space: nowrap; font-size: 16px; }
+    .buy:hover { background: var(--mauve); }
     .buy.poor { background: var(--rose); }
     .item + .item { margin-top: 8px; }
     #leaveBtn { margin-top: 12px; width: 100%; }
@@ -222,6 +222,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=24"></script>
+  <script type="module" src="js/main.js?v=25"></script>
 </body>
 </html>
