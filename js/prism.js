@@ -3,8 +3,8 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=40';
-import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=40';
+import { T } from './art.js?v=41';
+import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=41';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -103,8 +103,12 @@ export function createPrism(h) {
       const left = B.T - B.t, s = Math.max(0, (left - 0.33) / Math.max(0.2, B.T - 0.33));
       P.ring.position.set(p.x, 0.05, p.z); P.ring.scale.setScalar(0.9 + s * 3.2);
       P.ring.material.color.set(s < 0.05 ? '#ffd84a' : '#ffffff'); P.ring.material.opacity = 0.5 + (1 - s) * 0.5;
-      if (k >= 1) {
-        if (p.alive && p.y > 1.0) {             // knocked it back!
+      // forgiving hit window: it counts from 0.2 s before arrival, and the ball hangs above you for 0.35 s after
+      const late = B.t - B.T;
+      if (late > 0) pos.y -= Math.min(late, 0.35) * 1.2;
+      if (left < 0.2 && p.alive && p.y > 0.8) B.hitNow = true;
+      if (B.hitNow || late > 0.35) {
+        if (B.hitNow) {                         // knocked it back!
           if (P.locked && neonEl) { neonEl.style.setProperty('--heat', Math.min(1, (P.count + 1) / 7)); neonEl.classList.remove('kick'); void neonEl.offsetWidth; neonEl.classList.add('kick'); }
           P.count++; B.dir = 'out'; B.t = 0; B.T = Math.max(0.42, 0.75 * Math.pow(0.9, P.count)); B.from = pos.clone().sub(me());
           sfx.bossHit(); h.fx(0.18, 0.15); P.ring.visible = false; setName();
