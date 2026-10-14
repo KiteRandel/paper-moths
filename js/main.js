@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=28';
-import { InkPass } from './post.js?v=28';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=28';
-import { createBosses } from './boss.js?v=28';
-import { createShop } from './shop.js?v=28';
-import { createBrief } from './brief.js?v=28';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=29';
+import { InkPass } from './post.js?v=29';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=29';
+import { createBosses } from './boss.js?v=29';
+import { createShop } from './shop.js?v=29';
+import { createBrief } from './brief.js?v=29';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -376,7 +376,7 @@ function snipAhead() {
     s.position.copy(at); s.scale.setScalar(0.25); scene.add(s); sparks.push({ s, v: new THREE.Vector3(rand(-3, 3), rand(1, 4), rand(-2, 2)), life: 0.6 });
   }
 }
-const bandaidApi = { get: () => player.shield, add(n) { setBandaids(Math.min(MAX_BANDAIDS, player.shield + n)); }, max: MAX_BANDAIDS };
+const bandaidApi = { get: () => player.shield, add(n) { if (player.shield >= 99) return; setBandaids(Math.min(MAX_BANDAIDS, player.shield + n)); }, max: MAX_BANDAIDS };
 
 // =================================================================== first-run tutorial: slow motion until you press the right key
 const tut = { on: false, done: false, waiting: null, jumped: false, slid: false, scale: 1, target: 1, crateZ: 0, laundryZ: 0 };

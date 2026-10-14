@@ -44,6 +44,7 @@ Every few hundred metres a boss swoops in over the rooftops. The first time you 
 
 Beating a boss earns a big score bonus and a shower of moths.
 
+- **Ivory & Onyx**: prim, polite Ivory and fast, sloppy Onyx play chess, and the rooftop becomes their board. On each sister's move her squares glow and hurt, so stand on the other colour. Then she drops a piece that attacks the way it moves: rooks slide down a lane, bishops cut diagonally, knights hop in L-shapes and pawns march in a wall. Then it's your move: follow the gold knight's path and take their king. Three captures is checkmate.
 ## Art direction
 
 Everything is drawn to match Amara's illustration. The palette is sampled straight from her texture, objects use soft toon shading, and an ink-outline pass gives every shape the same brown lineart. A paper-grain sepia finish goes over the whole frame. The textures (roof tiles, brick, plaster walls with lit windows, crates, leopard-spot laundry and paper lanterns) are painted in code. While you run, a slowed, softened, reverb-washed version of "Rush Hour" plays; boss fights fade in "Dreamtone Bloom". Sound effects are synthesized live.
