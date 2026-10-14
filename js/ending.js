@@ -2,8 +2,8 @@
 // streams of coloured paper moths that fly into Amara, giving her a rainbow outline, and she flies off to the moon.
 // A sketchbook card closes the run: run again from the start, or loop the same game and keep going. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=42';
-import { rainbowHull } from './prism.js?v=42';
+import { T } from './art.js?v=43';
+import { rainbowHull } from './prism.js?v=43';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
@@ -92,7 +92,7 @@ export function createEnding(h) {
     // the rainbow outline she'll earn, one colour at a time
     if (!E.hull.length) p.model.traverse((o) => { if (o.isSkinnedMesh) { const r = rainbowHull(o, 0); o.parent.add(r.hull); E.hull.push({ mesh: r.hull, uni: r.uni }); } });
     setThick(0);
-    document.body.classList.add('ending'); $('endSkip').classList.remove('hidden');
+    document.body.classList.add('ending'); setArmed(false); $('endSkip').classList.remove('hidden');
     // the goodbyes
     BYE.forEach((g2, i) => {
       after(BYE_AT + i * SLOT, () => {
@@ -178,7 +178,18 @@ export function createEnding(h) {
     if (on) sfx.giggle(); else sfx.click();
   }
 
-  // ---------------------------------------------------------------- skip straight to the card
+  // ---------------------------------------------------------------- skip straight to the card (press twice, so one stray tap doesn't)
+  let armT = null;
+  function setArmed(on) {
+    const b = $('endSkip'); clearTimeout(armT);
+    b.classList.toggle('armed', on); b.innerHTML = on ? 'press <kbd>Space</kbd> again to skip' : 'press <kbd>Space</kbd> twice to skip';
+    if (on) armT = setTimeout(() => setArmed(false), 2500);
+  }
+  function skipPress() {
+    if (!E.on || E.phase === 'card' || E.phase === 'peek') return;
+    if (!$('endSkip').classList.contains('armed')) { setArmed(true); sfx.click(); return; }
+    setArmed(false); skip();
+  }
   function skip() {
     if (!E.on || E.phase === 'card' || E.phase === 'peek') return;
     E.timers = [];
@@ -279,10 +290,10 @@ export function createEnding(h) {
   $('endLoop').addEventListener('click', () => { sfx.click(); h.onLoop(); });
   $('endMoon').addEventListener('click', () => peek(true));
   $('endPeek').addEventListener('click', () => peek(false));
-  $('endSkip').addEventListener('click', skip);
+  $('endSkip').addEventListener('click', skipPress);
 
   return {
-    start, update, cam, skip, cleanup, peek,
+    start, update, cam, skip, skipPress, cleanup, peek,
     get on() { return E.on; }, get anchorZ() { return E.on ? E.anchorZ : null; }, get phase() { return E.phase; }, get moonAt() { return E.phase === 'fly' || E.phase === 'card' || E.phase === 'peek' ? E.moonAt : null; },
     get state() { return E.on ? { phase: E.phase, t: +E.t.toFixed(1), thick: E.thick, moths: E.moths.length, trail: E.trail.length } : null; },
   };

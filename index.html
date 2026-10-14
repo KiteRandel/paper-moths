@@ -122,7 +122,9 @@
     @keyframes credUp { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateY(-112vh); opacity: 0; } }
     @keyframes credSway { from { transform: translateX(-18px) rotate(-4deg); } to { transform: translateX(18px) rotate(4deg); } }
     @keyframes credFlap { from { transform: scaleX(1); } to { transform: scaleX(.55); } }
-    #endSkip { position: fixed; right: 16px; bottom: 90px; z-index: 6; font-size: 15px; padding: 6px 16px; opacity: .85; }
+    #endSkip { position: fixed; right: 16px; bottom: 90px; z-index: 6; font-size: 14px; padding: 6px 14px; opacity: .8; transition: opacity .2s; }
+    #endSkip.armed { opacity: 1; background: #a8386d; animation: bump .25s; }
+    #endSkip kbd { font-size: 12px; }
     #endCard { z-index: 6; animation: endIn .9s ease-out; }
     #endCard .endPaper { width: min(520px, 100%); }
     #endCard h1 small { color: #a8386d; }
@@ -271,7 +273,7 @@
   <div id="neonFx"><div class="streaks"></div><div class="glow"></div><div class="scan"></div><div class="rim"></div></div>
   <div id="voice" class="paper"><b></b><span></span></div>
   <div id="credits"></div>
-  <button id="endSkip" class="hidden">skip &rsaquo;</button>
+  <button id="endSkip" class="hidden">press <kbd>Space</kbd> twice to skip</button>
   <div id="endCard" class="modal hidden">
     <div class="paper endPaper">
       <h1><small>the end&hellip; for now</small>Amara &amp; the Paper Moths</h1>
@@ -301,6 +303,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=42"></script>
+  <script type="module" src="js/main.js?v=43"></script>
 </body>
 </html>

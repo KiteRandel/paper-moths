@@ -1,13 +1,13 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=42';
-import { InkPass } from './post.js?v=42';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=42';
-import { createBosses } from './boss.js?v=42';
-import { createShop } from './shop.js?v=42';
-import { createBrief } from './brief.js?v=42';
-import { createEnding } from './ending.js?v=42';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=43';
+import { InkPass } from './post.js?v=43';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=43';
+import { createBosses } from './boss.js?v=43';
+import { createShop } from './shop.js?v=43';
+import { createBrief } from './brief.js?v=43';
+import { createEnding } from './ending.js?v=43';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -594,7 +594,7 @@ addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (k === 'arr
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (state === 'title' || (state === 'dead' && deadT > 1.3)) { if (k === ' ' || k === 'enter') { e.preventDefault(); startRun(); } return; }
-  if (state === 'ending') { if ((k === ' ' || k === 'enter' || k === 'escape') && !e.repeat) { e.preventDefault(); if (ending.phase === 'peek') ending.peek(false); else ending.skip(); } return; }
+  if (state === 'ending') { if ((k === ' ' || k === 'enter' || k === 'escape') && !e.repeat) { e.preventDefault(); if (ending.phase === 'peek') ending.peek(false); else ending.skipPress(); } return; }
   if (state !== 'run') return;
   if (k === 'escape') { e.preventDefault(); if (!e.repeat) setPaused(!paused); return; }
   if (paused) return;
@@ -808,7 +808,7 @@ window.moths = {
   crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); }, promote() { boss.debugPromote(); }, prismAttack(k) { return boss.debugPrismAttack(k); }, prismFinal(hh) { boss.debugPrismFinal(hh); },
   get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
   resetTutorial() { tut.done = false; try { localStorage.removeItem('paperMoths.tutorial'); } catch (_) { /* ignore */ } },
-  bossSkip(n) { boss.skipTo(n); }, get ending() { return ending.state; }, endNow() { if (state === 'run') { boss.debugWin('prism'); startEnding(); } }, endSkip() { ending.skip(); }, bossKill() { boss.debugKill(); }, endPeek(v) { ending.peek(v); }, endLoop() { loopAgain(); }, endAgain() { startRun(); },
+  bossSkip(n) { boss.skipTo(n); }, get ending() { return ending.state; }, endNow() { if (state === 'run') { boss.won.add('prism'); startEnding(); } }, endSkip() { ending.skip(); }, bossKill() { boss.debugKill(); }, endPeek(v) { ending.peek(v); }, endLoop() { loopAgain(); }, endAgain() { startRun(); },
   get music() { return bossMusicState(); },
   set stepHook(fn) { stepHook = fn; },
   // jump straight to a boss: clear what's ahead and lay a fresh runway
