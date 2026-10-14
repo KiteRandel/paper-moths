@@ -3,8 +3,8 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=44';
-import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=44';
+import { T } from './art.js?v=45';
+import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=45';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -84,13 +84,13 @@ export function createPrism(h) {
   const me = () => new THREE.Vector3(player.x, 0, player.z);   // the ball flies in Amara's running frame, so it really travels
   function throwBall() {
     if (!h.isFight() || P.phase !== 'fused') return;
-    const T2 = FLIGHT[P.stage] * Math.pow(0.86, P.count);
+    const T2 = flightTime();
     P.ball = { dir: 'in', t: 0, T: T2, from: handPos().sub(me()), hue: Math.random() };
     h.anim(P.neon, 'Cast', { once: true, after: 'Fly', fade: 0.08 }); if (P.neon.acts.Cast) P.neon.acts.Cast.timeScale = 1.6;
     P.ballMesh.visible = true; P.ring.visible = true; sfx.throw();
-    if (P.stage === 2) echo();
     setName();
   }
+  function flightTime() { return FLIGHT[P.stage] * Math.pow(0.86, P.count); }
   function setName() { h.name(`Neon Amara · rally ${P.count}/${NEED[P.stage]}`); }
   function updateBall(dt) {
     const B = P.ball; if (!B) return;
@@ -115,7 +115,7 @@ export function createPrism(h) {
         } else {                                // it hit her
           P.ball = null; P.ballMesh.visible = false; P.ring.visible = false; P.shadow.visible = false; P.count = 0;
           h.hurt('Neon Amara’s ball got you!');
-          if (p.alive) { h.banner('Rally broken!', 'back to zero', 1.2); setName(); h.after(1.4, () => { if (h.isFight()) throwBall(); }); }
+          if (p.alive) { h.banner('Rally broken!', 'back to zero', 1.2); setName(); h.after(1.6, () => { if (h.isFight()) (P.stage === 2 ? finaleStep : opener)(); }); }
           return;
         }
       }
@@ -131,8 +131,10 @@ export function createPrism(h) {
         } else {
           sfx.dodge();
           const list = COMBOS[P.stage][P.count];
-          if (list) combo(list, throwBall);
-          else h.after(0.22, throwBall);
+          const wait = Math.max(0.25, (P.busyUntil || 0) - h.now() - 0.3);    // let the last attack finish first
+          if (P.stage === 2) h.after(0.15, finaleStep);
+          else if (list) h.after(wait, () => combo(list, throwBall));
+          else h.after(wait, throwBall);
         }
         if (P.ball === null && P.count < NEED[P.stage]) P.ballMesh.visible = true;
       }
@@ -148,21 +150,41 @@ export function createPrism(h) {
   }
   // ---------------------------------------------------------------- borrowed attacks, in boss order
   const COMBOS = [
-    [['twins', 'wrath'], ['firewave', 'split'], ['split', 'firewave']],                                          // stage 1: the Twin Lanterns and Wrath
-    [['glitch', 'chess'], ['burnsong', 'tidal'], ['knightsong', 'rook'], ['tidal', 'burnsong'], ['knightsong', 'tidal']],  // stage 2: Lilac & Glitch, Ivory & Onyx
+    [['twins', 'wrath'], ['firewave', 'split'], ['split', 'twins', 'firewave']],                                             // stage 1: the Twin Lanterns and Wrath
+    [['glitch', 'chess'], ['burnsong', 'tidal'], ['knightsong', 'rook'], ['tidal', 'wrath', 'burnsong'], ['rook', 'knightsong']],  // stage 2: Lilac & Glitch, Ivory & Onyx
     [],
   ];
+  // each attack says when the ball should arrive mid-attack ({ dur, ball }): the last one in a combo is thrown
+  // so it lands right then, so you're dodging and timing the jump at the same time (often one jump does both)
   function combo(list, then) {
     let i = 0;
     const next = () => {
       if (!h.isFight() || P.phase !== 'fused') return;
-      if (i >= list.length) { then(); return; }
-      const k = list[i++]; P.attack = { kind: k }; const dur = ATTACK[k]();
-      h.after(i < list.length ? dur * 0.8 : dur, next);
+      const k = list[i++]; P.attack = { kind: k }; const r = ATTACK[k]();
+      const dur = typeof r === 'number' ? r : r.dur, ball = typeof r === 'number' ? r : r.ball;
+      if (i < list.length) { h.after(dur * 0.8, next); return; }
+      P.busyUntil = h.now() + dur;
+      h.after(Math.max(0, ball - flightTime()), then);
     };
     next();
   }
-  const opener = () => { const c = COMBOS[P.stage][0]; if (c) combo(c, throwBall); else throwBall(); };
+  // the chained finale: each throw comes with one of them echoing her own attack down your lane, timed to the ball
+  const FINALE = ['blue', 'crater', 'orange', 'knight', 'blue', 'crater', 'orange'];
+  function finaleStep() {
+    if (!h.isFight() || P.phase !== 'fused') return;
+    const k = FINALE[P.count % FINALE.length], T2 = flightTime();
+    const lead = k === 'crater' ? 1.6 : k === 'knight' ? 0.95 : 2.15;    // hazard start → when the ball should arrive
+    const A = Math.max(T2 + 0.05, lead);
+    P.attack = { kind: 'finale-' + k };
+    h.after(A - lead, () => {
+      if (!h.isFight()) return;
+      if (k === 'blue' || k === 'orange') { echo(k === 'blue' ? 0 : 1, k === 'blue' ? 'Hold still, then swing!' : 'Duck, then swing!'); wave(k === 'blue' ? [0, 1, 2] : [], 1.5); }
+      else if (k === 'crater') { echo(2, 'Jump it AND hit it!'); cracks([1], player.z - h.speed * 1.6, [], 1.0); }
+      else { const w = Math.random() < 0.5; echo(w ? 6 : 7, w ? 'Hop the knight, darling.' : 'Over the knight!'); knightDrop(1, w); }
+    });
+    h.after(A - T2, throwBall);
+  }
+  const opener = () => { const c = COMBOS[P.stage][0]; if (c) combo(c, throwBall); else finaleStep(); };
   const fx = [];   // little self-updating effects: { update(dt) -> keep?, meshes }
   function addFx(o) { fx.push(o); return o; }
   function killFx(o) { for (const m of o.meshes) (m.parent || h.scene).remove(m); fx.splice(fx.indexOf(o), 1); }
@@ -347,27 +369,30 @@ export function createPrism(h) {
       const bl = randBlue(false); flashAura(bl.length ? '#5d8fe8' : '#f0913a');
       bl.length ? say('blue', 'Hold still…') : say('orange', 'Duck!');
       h.banner(bl.length ? 'Blue wave!' : 'Orange wave!', bl.length ? 'keep running, don’t move' : 'slide!', 0.9);
-      wave(bl, 1.7); return 2.15;
+      wave(bl, 1.7); return { dur: 2.15, ball: 2.45 };
     },
     split() {
       const bl = randBlue(true); flashAura('#c97ab0'); say('orange', 'Pick a side!');
       h.banner('Split wave!', 'blue side: keep running · orange side: slide', 1.0);
-      wave(bl, 1.8); return 2.25;
+      wave(bl, 1.8); return { dur: 2.25, ball: 2.55 };
     },
     wrath() {
       const z = player.z - (h.speed * 1.35 + 5), n = Math.random() < 0.5 ? 1 : 2, lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, n), fire = Math.random() < 0.45 ? [lanes[0]] : [];
       flashAura('#d8343c'); say('wrath', 'SMASH!'); sfx.crackWarn(); h.banner('Wrath’s slam!', fire.length ? 'cracks and fire, switch lanes' : 'red cracks: stay out or jump', 0.9);
-      cracks(lanes, z, fire, 1.0); return 1.0 + (player.z - z) / h.speed * 0.8;
+      cracks(lanes, z, fire, 1.0); const reach = (player.z - z) / h.speed;
+      return { dur: 1.0 + reach * 0.8, ball: reach };     // jump the crater and hit the ball in one go (or dodge the fire)
     },
     glitch() {
       flashAura('#9a5fe0'); say('lilac', 'La, la, laaa~'); h.banner('Lilac’s song', 'remember the notes: Glitch strikes those lanes', 1.1);
-      return song(3 + (P.count >= 3 ? 1 : 0), 0.55, (lane) => strike(lane, false), () => { flashAura('#3fd45a'); say('glitch', 'Zzzt—!'); sfx.glitchGo(); h.banner('Glitch!', 'dodge the lanes she sang', 0.8); }) + 0.4;
+      const n = 3 + (P.count >= 3 ? 1 : 0), beat = 0.55;
+      const dur = song(n, beat, (lane) => strike(lane, false), () => { flashAura('#3fd45a'); say('glitch', 'Zzzt—!'); sfx.glitchGo(); h.banner('Glitch!', 'dodge the lanes she sang', 0.8); }) + 0.4;
+      return { dur, ball: 0.3 + n * beat + 0.8 + 1.5 * beat * 1.1 };     // the ball lands between her strikes
     },
     chess() {
       const side = Math.random() < 0.5 ? 0 : 1; flashAura(side === 0 ? '#ffd98a' : '#6b5a86'); sfx.crackWarn();
       side === 0 ? say('ivory', 'Your move, darling.') : say('onyx', 'Too slow!');
       h.banner(side === 0 ? 'Ivory’s move' : 'Onyx’s move', side === 0 ? 'stand on the dark squares' : 'stand on the light squares', 0.9);
-      return board(side, 3, false);
+      const dur = board(side, 3, false); return { dur, ball: dur * 0.5 };
     },
     rook() {
       const white = Math.random() < 0.5, lane = player.lane, z = player.z - (h.speed * 1.7 + 12);
@@ -384,7 +409,8 @@ export function createPrism(h) {
         if (!hurt && t > 0.6 && Math.abs(player.x - LANES[lane]) < 0.7 && Math.abs(player.z - rz) < 0.7 && player.y < 2.4) { hurt = true; h.hurt('Flattened by a rook!'); }
         return rz < player.z + 4;
       } });
-      return 0.6 + (player.z - z) / (h.speed + 5.5) + 0.2;
+      const meet = 0.6 + (player.z - z - h.speed * 0.6) / (h.speed + 5.5);
+      return { dur: meet + 0.4, ball: meet + 0.55 };      // right after you dodge it
     },
 
     // ---- fused: two bosses' attacks working together
@@ -397,31 +423,35 @@ export function createPrism(h) {
       const fire = orange ? [lanes[0]] : [];
       wave(bl, T2);
       cracks(lanes, z, fire, T2 + 0.05);
-      return T2 + 1.4;
+      return { dur: T2 + 1.4, ball: T2 + 0.95 };     // the ball arrives over the craters: one jump clears both
     },
     // Burning song: Lilac sings, and every lane Glitch strikes stays on fire for a moment
     burnsong() {
       flashAura('#c0402a'); say('lilac', 'A hot little tune~'); h.banner('Burning song', 'the lanes she sings will burn', 1.1);
-      return song(3 + (P.count >= 3 ? 1 : 0), 0.62, (lane) => strike(lane, true), () => { flashAura('#ff7a1a'); say('wrath', 'Make it HOTTER!'); sfx.fireburst?.(); }) + 1.0;
+      const n = 3 + (P.count >= 3 ? 1 : 0), beat = 0.62;
+      const dur = song(n, beat, (lane) => strike(lane, true), () => { flashAura('#ff7a1a'); say('wrath', 'Make it HOTTER!'); sfx.fireburst?.(); }) + 1.0;
+      return { dur, ball: 0.3 + n * beat + 0.8 + 1.5 * beat * 1.1 };
     },
     // Tidal board: the squares light up, then a tide sweeps over and flips which ones are spiked
     tidal() {
       const side = Math.random() < 0.5 ? 0 : 1; flashAura('#7fb6ff');
       say('orange', 'Surf’s up!'); h.after(1.0, () => say(side === 0 ? 'ivory' : 'onyx', side === 0 ? 'Mind the board.' : 'Flip it!'));
       h.banner('Tidal board', 'the tide flips the spikes as it passes', 1.2);
-      return board(side, 3, true);
+      const dur = board(side, 3, true); return { dur, ball: dur * 0.55 };
     },
     // Knight's song: every note Lilac sings drops a knight onto that lane, so you hop through her tune
     knightsong() {
       flashAura('#9a7ad8'); say('lilac', 'A little waltz…'); h.banner('Knight’s song', 'each note drops a knight: hop through the tune', 1.1);
       const white = Math.random() < 0.5;
-      return song(4, 0.6, (lane) => knightDrop(lane, white), () => say(white ? 'ivory' : 'onyx', white ? 'Knights, if you please.' : 'Hop to it!')) + 0.9;
+      const dur = song(4, 0.6, (lane) => knightDrop(lane, white), () => say(white ? 'ivory' : 'onyx', white ? 'Knights, if you please.' : 'Hop to it!')) + 0.9;
+      return { dur, ball: 0.3 + 4 * 0.6 + 0.8 + 3 * 0.6 * 1.1 + 0.95 };     // lands on the last knight: hop it and hit it
     },
   };
   // the finale: one ghost of each of them flickers beside her as she throws
   const ECHO = [[0, 'blue', 'Faster!'], [2, 'wrath', 'Hit it HARDER!'], [4, 'lilac', 'In time, now~'], [5, 'glitch', 'zzt—again—'], [6, 'ivory', 'Check…'], [7, 'onyx', '…and mate!'], [3, 'joy', 'Wheee!'], [8, 'pink', 'Ugh. Fine. Go.']];
-  function echo() {
-    const [i, who, line] = ECHO[P.count % ECHO.length], b = P.wheel[i];
+  const WHO = ['blue', 'orange', 'wrath', 'joy', 'lilac', 'glitch', 'ivory', 'onyx', 'pink'];
+  function echo(idx, text) {
+    const [i0, who0, line0] = ECHO[P.count % ECHO.length], i = idx ?? i0, who = idx !== undefined ? WHO[idx] : who0, line = text || line0, b = P.wheel[i];
     b.g.visible = true; b.g.position.set((P.count % 2 ? 1 : -1) * 2.2, 0.2, 0.6); b.g.scale.setScalar(0.01); h.anim(b, 'Cast', { once: true, after: 'Fly', fade: 0.05 });
     b.echoT = 1.1; say(who, line, 1.0); flashAura(['#5d8fe8', '#f0913a', '#d8343c', '#ffcf33', '#9a5fe0', '#3fd45a', '#fff1cf', '#6b5a86', '#ff7fb6'][i]);
   }
@@ -449,7 +479,7 @@ export function createPrism(h) {
     bicker();
     if (hp > 0) {
       h.after(1.8, () => { if (!h.isFight()) return; if (P.stage === 2) chainUp(); else h.banner('Stage 2', 'keep the rally going for 5', 1.8); setName(); });
-      h.after(3.6, () => { if (h.isFight()) (P.stage === 2 ? throwBall : opener)(); });
+      h.after(3.6, () => { if (h.isFight()) (P.stage === 2 ? finaleStep : opener)(); });
     }
   }
   function defeated() {   // she splits back into all of them, and they drift away
