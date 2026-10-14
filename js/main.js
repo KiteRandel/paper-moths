@@ -517,6 +517,30 @@ const shop = createShop({
 const act = { left() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
   jump() { if (tut.waiting === 'slide' || brief.on) return; if (boss.onJump()) return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
   slide() { if (tut.waiting === 'jump' || brief.on) return; boss.noteAction(); if (tut.waiting === 'slide') { tut.slid = true; tutResolve(); } if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
+// =================================================================== test shortcut: type 3-7-9-7 to jump straight to the chess boss
+function jumpToBoss(kind) {
+  const p = player;
+  if (boss.state.mode !== 'none') boss.reset();
+  shop.resetHeckle();
+  for (const o of [...obstacles]) if (o.box.z1 < p.z + 1) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
+  for (const b of [...blocks]) if (b.z0 < p.z - 0.01) { world.remove(b.mesh); blocks.splice(blocks.indexOf(b), 1); }
+  for (const sg of signs) sg.used = true;
+  const cur = blocks.find((b) => p.z <= b.z0 && p.z >= b.z1);
+  const top = cur ? cur.z1 : p.z + 2;
+  const run = buildingBlock(12); run.position.set(0, 0, top - 6); world.add(run); blocks.push({ z0: top, z1: top - 12, mesh: run });
+  genZ = top - 12; boss.force(kind); while (genZ > p.z - 150) generateBlock(speed || 10);
+}
+let cheat = '';
+addEventListener('keydown', (e) => {
+  if (!/^[0-9]$/.test(e.key)) return;
+  cheat = (cheat + e.key).slice(-4);
+  if (cheat !== '3797') return;
+  cheat = '';
+  const go = () => { jumpToBoss('chess'); const b = $('banner'); b.innerHTML = 'Test mode<small>skipping ahead to Ivory &amp; Onyx</small>'; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1600); };
+  if (state === 'title' || state === 'dead') { if (state === 'title' || deadT > 1.3) { startRun(); setTimeout(go, 50); } }
+  else if (state === 'run' && !paused) go();
+});
+
 // =================================================================== pause (Esc, or the pause button)
 let paused = false;
 function setPaused(on) {
@@ -746,7 +770,8 @@ window.moths = {
   get music() { return bossMusicState(); },
   set stepHook(fn) { stepHook = fn; },
   // jump straight to a boss: clear what's ahead and lay a fresh runway
-  forceBoss(kind) {
+  forceBoss(kind) { jumpToBoss(kind); },
+  _forceBossOld(kind) {
     const p = player;
     for (const o of [...obstacles]) if (o.box.z1 < p.z + 1) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
     for (const b of [...blocks]) if (b.z0 < p.z - 0.01) { world.remove(b.mesh); blocks.splice(blocks.indexOf(b), 1); }
