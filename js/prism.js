@@ -3,8 +3,8 @@
 // you jump at the right moment to knock it back, and it gets faster every return. Keep the rally going long enough
 // (3, then 5, then 7 returns, with obstacles in the last stage) and she finally misses. Made by KiteRandel.
 import * as THREE from 'three';
-import { T } from './art.js?v=41';
-import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=41';
+import { T } from './art.js?v=42';
+import { makeSpikes, riseSpikes, makePiece } from './chess.js?v=42';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const WHEEL = [   // [body tint, glow]
@@ -15,7 +15,7 @@ const NEED = [3, 5, 7];          // returns needed in each stage before she miss
 const FLIGHT = [1.55, 1.4, 1.3]; // first throw of each stage (seconds), then 14% faster every return
 
 // a rainbow outline that hugs the skinned body: the same mesh, pushed out along its normals, drawn back-faces only
-function rainbowHull(src, thick) {
+export function rainbowHull(src, thick) {
   const mat = new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.BackSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   const uni = { uThick: { value: thick }, uTime: { value: 0 } };
   mat.onBeforeCompile = (sh) => {
@@ -494,7 +494,7 @@ export function createPrism(h) {
     init, begin, start, update, afterHit, defeated, clear,
     debugAttack(k) { return ATTACK[k](); },
     debugFinal(heat = 0.8) { P.stage = 2; P.count = 0; chainUp(); if (neonEl) neonEl.style.setProperty('--heat', heat); },
-    get group() { return P.g; }, get locked() { return !!P.locked; },
+    get group() { return P.g; }, get wheel() { return P.wheel; }, get locked() { return !!P.locked; },
     get state() { return P.on ? { attack: P.attack ? P.attack.kind : null, fxN: fx.length, locked: !!P.locked, phase: P.phase, stage: P.stage, count: P.count, need: NEED[P.stage], ball: P.ball ? { dir: P.ball.dir, left: +(P.ball.T - P.ball.t).toFixed(2), T: +P.ball.T.toFixed(2) } : null } : null; },
   };
 }

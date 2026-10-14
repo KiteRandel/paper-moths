@@ -1,9 +1,9 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=41';
-import { createChess } from './chess.js?v=41';
-import { createPrism } from './prism.js?v=41';
+import { PAL, T, toon } from './art.js?v=42';
+import { createChess } from './chess.js?v=42';
+import { createPrism } from './prism.js?v=42';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -200,7 +200,7 @@ export function createBosses(ctx) {
     // shower of moths down the road
     const p = player;
     for (let i = 0; i < 26; i++) ctx.addMoth(LANES[i % 3], 1 + Math.sin(i) * 0.4, p.z - 10 - i * 1.3, i % 9 === 4);
-    st.outroT = 0;
+    st.outroT = 0; st.finale = false;
     if (lantern) { world.remove(lantern.mesh); lantern = null; }
     for (const w of waves) world.remove(w.mesh); waves.length = 0;
     for (const c of cracks) world.remove(c.mesh); cracks.length = 0;
@@ -536,11 +536,12 @@ export function createBosses(ctx) {
         else if (s.phase === 'impact' || s.phase === 'bimpact') { wantZ = s.z; wantY = 0; k = 60; }
         else if (s.phase === 'rise') { wantY = 2.6; k = 4; }
       }
-      if (st.mode === 'outro') { st.outroT += dt; wantZ = st.z - 6 * dt; wantY = st.y + 4 * dt; k = 60; }
+      if (st.mode === 'outro') { st.outroT += dt; if (st.kind !== 'prism') { wantZ = st.z - 6 * dt; wantY = st.y + 4 * dt; k = 60; } }
       st.z += (wantZ - st.z) * Math.min(1, dt * k); st.y += (wantY - st.y) * Math.min(1, dt * k); st.x += (wantX - st.x) * Math.min(1, dt * (kx ?? k * 0.8));
       if (st.kind === 'wrath' && st.slam && (st.slam.phase === 'impact' || st.slam.phase === 'bimpact')) { st.z = st.slam.z; st.y = 0; st.x = LANES[st.slam.wrathLane]; }
       b.g.position.set(st.x, st.y + (st.mode === 'fight' ? Math.sin(t * 2) * 0.15 : 0), st.z);
-      if (st.mode === 'outro') { if (st.kind !== 'wrath') b.g.rotation.z += dt * 3; b.g.scale.multiplyScalar(1 - dt * 0.35); if (st.outroT > 2.2) { b.g.visible = false; b.g.rotation.z = 0; b.g.scale.setScalar(st.kind === 'wrath' ? 1.7 : st.kind === 'prism' ? 1 : 1.6); if (st.kind === 'prism') prism.clear(); if (st.kind === 'wrath') { B.joy.g.visible = false; B.joy.g.scale.setScalar(1.45); } if (st.kind === 'duet') { B.duet.glitch.g.visible = false; B.duet.glitch.g.scale.setScalar(1.45); B.duet.glitch.g.rotation.z = 0; } st.mode = 'none'; st.boss = null; st.nextAt = ctx.dist + 650; } }
+      if (st.mode === 'outro' && st.kind === 'prism') { if (st.outroT > 1.7 && !st.finale) { st.finale = true; st.mode = 'finale'; ctx.finale?.(); } }
+      else if (st.mode === 'outro') { if (st.kind !== 'wrath') b.g.rotation.z += dt * 3; b.g.scale.multiplyScalar(1 - dt * 0.35); if (st.outroT > 2.2) { b.g.visible = false; b.g.rotation.z = 0; b.g.scale.setScalar(st.kind === 'wrath' ? 1.7 : st.kind === 'prism' ? 1 : 1.6); if (st.kind === 'prism') prism.clear(); if (st.kind === 'wrath') { B.joy.g.visible = false; B.joy.g.scale.setScalar(1.45); } if (st.kind === 'duet') { B.duet.glitch.g.visible = false; B.duet.glitch.g.scale.setScalar(1.45); B.duet.glitch.g.rotation.z = 0; } st.mode = 'none'; st.boss = null; st.nextAt = ctx.dist + 650; } }
       // mixers + auras
       const list = st.kind === 'twins' ? [B.twins.blue, B.twins.orange] : st.kind === 'duet' ? [B.duet.lilac, B.duet.glitch] : st.kind === 'chess' ? [B.chess.white, B.chess.black] : st.kind === 'prism' ? [] : [B.wrath, B.joy];
       if (st.kind === 'prism') prism.update(dt, t, st.mode === 'fight');
@@ -838,6 +839,12 @@ export function createBosses(ctx) {
   return {
     init, reset, update, quiet, quietStartsAt, holeAt,
     noteAction() { lastAct = st.t; },
+    get prismWheel() { return prism.wheel; }, get prismGroup() { return prism.group; }, noteSprite: (sz) => noteSprite(sz), anim: (b, n, o) => anim(b, n, o),
+    debugKill() { if (st.mode === 'fight') { st.hp = 1; hitBoss(); } },
+    loopOn() {   // after the ending: keep running the same game from the first boss again
+      prism.clear(); timers = []; ui.legend.classList.add('hidden');
+      Object.assign(st, { mode: 'none', kind: null, boss: null, finale: false, nextAt: ctx.dist + 450 }); setBar();
+    },
     laneLocked() { return st.kind === 'prism' && prism.locked; },
     onJump() { return st.kind === 'chess' && st.mode === 'fight' && chess.queenOn ? chess.queenFire() : false; },
     get beaten() { return st.beaten; }, get won() { return st.won; }, get briefing() { return st.mode === 'briefing'; },

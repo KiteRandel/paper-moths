@@ -1,12 +1,13 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=41';
-import { InkPass } from './post.js?v=41';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=41';
-import { createBosses } from './boss.js?v=41';
-import { createShop } from './shop.js?v=41';
-import { createBrief } from './brief.js?v=41';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=42';
+import { InkPass } from './post.js?v=42';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=42';
+import { createBosses } from './boss.js?v=42';
+import { createShop } from './shop.js?v=42';
+import { createBrief } from './brief.js?v=42';
+import { createEnding } from './ending.js?v=42';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -297,7 +298,8 @@ function play(name, fade = 0.15) {
 }
 
 // =================================================================== game state
-let state = 'title';      // title | run | shop | dead
+let state = 'title';      // title | run | shop | dead | ending
+let bandaidsUsed = 0, shopVisits = 0, loopN = 1;
 let rampT = 0, speed = 0, dist = 0, mothsGot = 0, score = 0, combo = 0, comboT = 0, runT = 0, best = 0, shake = 0, deadT = 0, flash = 0;
 try { best = +localStorage.getItem('paperMoths.bestBosses') || 0; } catch (_) { /* ignore */ }
 $('best').textContent = best;
@@ -420,6 +422,7 @@ function resetRun() {
   clearWorld();
   player.lane = 1; player.x = 0; player.y = 0; player.vy = 0; player.z = 0; player.grounded = true; player.slideT = 0;
   player.alive = true; player.falling = false; setBandaids(0); setScissors(0); player.magnet = 0;
+  ending.cleanup(); bandaidsUsed = 0; shopVisits = 0; setLoop(1);
   nextShopAt = 240; rampT = 0; brief.hide(); speed = 0; dist = 0; mothsGot = 0; mothPoints = 0; score = 0; combo = 0; comboT = 0; runT = 0; deadT = 0;
   genZ = 6;
   // a starting runway (longer on the first run, with the tutorial crates and laundry on it)
@@ -472,13 +475,45 @@ const boss = createBosses({
   giveShield() { bandaidApi.add(1); },
   hurt(msg) { hurtPlayer(msg); },
   addObstacle: (k, l, z) => addObstacle(k, l, z),
+  finale: () => startEnding(),
 });
+// =================================================================== the ending: goodbyes, the moths fly into Amara, and off to the moon
+const ending = createEnding({
+  scene, player, camera, sfx, sparkle, play: (n) => play(n), speed: () => speed,
+  wheel: () => boss.prismWheel, group: () => boss.prismGroup, noteSprite: (s) => boss.noteSprite(s), anim: (b, n, o) => boss.anim(b, n, o),
+  stats: () => ({ bosses: boss.beaten, dist, moths: mothsGot, bandaids: bandaidsUsed, loop: loopN }),
+  shopVisits: () => shopVisits, mothIcon: () => mothIcon,
+  onAgain: () => startRun(),
+  onLoop: () => loopAgain(),
+});
+function setLoop(n) { loopN = n; const el = $('loopTag'); if (el) { el.textContent = n > 1 ? ` \u00b7 loop ${n}` : ''; } }
+function startEnding() {
+  if (state !== 'run' || !player.alive) return;
+  state = 'ending'; brief.hide(); shop.resetHeckle(); slideHeld = false;
+  const beaten = boss.beaten; if (beaten > best) { best = beaten; try { localStorage.setItem('paperMoths.bestBosses', best); } catch (_) { /* ignore */ } $('best').textContent = best; }
+  ending.start();
+}
+function loopAgain() {
+  // the same game again, from the first boss, without losing anything
+  const f = $('fade'); f.classList.add('on');
+  setTimeout(() => {
+    const z = ending.anchorZ ?? player.z;
+    ending.cleanup(); boss.loopOn();
+    const p = player; p.z = z; p.lane = 1; p.x = 0; p.y = 0; p.vy = 0; p.grounded = true; p.falling = false; p.slideT = 0; p.root.position.set(0, 0, z);
+    for (const o of [...obstacles]) if (o.box.z1 < z + 2 && o.box.z0 > z - 40) { world.remove(o.mesh); obstacles.splice(obstacles.indexOf(o), 1); }
+    if (!onBlockAt(z) || !onBlockAt(z - 30)) { const run = buildingBlock(40); run.position.set(0, 0, z - 18); world.add(run); blocks.push({ z0: z + 2, z1: z - 38, mesh: run }); }
+    setLoop(loopN + 1); speed = 12; rampT = 0; state = 'run'; play('Run', 0);
+    camPos.set(0, 2.55, z + 4.3); camLook.set(0, 1.15, z - 6);
+    f.classList.remove('on');
+    const b = $('banner'); b.innerHTML = `Loop ${loopN}<small>here we go again!</small>`; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 2000);
+  }, 380);
+}
 let lastHurt = '';
 const hurtLog = [];
 function hurtPlayer(msg) {
   if (!player.alive) return;
   hurtLog.push(msg); if (hurtLog.length > 40) hurtLog.shift();
-  if (player.shield > 0) { setBandaids(player.shield - 1); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
+  if (player.shield > 0) { bandaidsUsed++; setBandaids(player.shield - 1); sfx.shield(); flash = 0.35; shake = 0.3; sparkle(player.root.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); }
   else { lastHurt = msg; die('hit'); }
 }
 function collectMoth(mo) {
@@ -494,7 +529,7 @@ function collectMoth(mo) {
 
 function enterShop() {
   if (boss.quiet() || !shopOn) return;
-  state = 'shop'; sfx.power(); shop.open();
+  state = 'shop'; shopVisits++; sfx.power(); shop.open();
 }
 function leaveShop() {
   // clear a little breathing room ahead, then back to running
@@ -559,6 +594,7 @@ addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (k === 'arr
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (state === 'title' || (state === 'dead' && deadT > 1.3)) { if (k === ' ' || k === 'enter') { e.preventDefault(); startRun(); } return; }
+  if (state === 'ending') { if ((k === ' ' || k === 'enter' || k === 'escape') && !e.repeat) { e.preventDefault(); if (ending.phase === 'peek') ending.peek(false); else ending.skip(); } return; }
   if (state !== 'run') return;
   if (k === 'escape') { e.preventDefault(); if (!e.repeat) setPaused(!paused); return; }
   if (paused) return;
@@ -630,7 +666,7 @@ function updateWorld(dt) {
   if (p.alive) for (const o of obstacles) {
     if (o.dead || Math.abs(o.box.z0 - p.z) > 3) continue;
     if (hits(o.box, p.x, p.y, p.z, h)) {
-      if (p.shield > 0) { setBandaids(p.shield - 1); o.dead = true; sparkle(o.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); world.remove(o.mesh); sfx.shield(); flash = 0.3; }
+      if (p.shield > 0) { bandaidsUsed++; setBandaids(p.shield - 1); o.dead = true; sparkle(o.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), PAL.paper, 16); world.remove(o.mesh); sfx.shield(); flash = 0.3; }
       else die('hit');
     }
   }
@@ -684,23 +720,26 @@ function updateFx(dt, t) {
 // camera
 const camPos = new THREE.Vector3(2.5, 1.7, -4), camLook = new THREE.Vector3(0, 1.1, 0);
 function updateCamera(dt, t) {
-  const p = player; let want, look;
+  const p = player; let want, look, rate = 5;
   if (state === 'title') {
     const a = Math.sin(t * 0.15) * 0.35;
     want = new THREE.Vector3(p.x + Math.sin(a) * 3.4 + 0.6, 1.45, p.z - Math.cos(a) * 3.4);
     look = new THREE.Vector3(p.x, 1.0, p.z);
+  } else if (state === 'ending') {
+    const c = ending.cam(); want = c.want; look = c.look; rate = c.k; if (c.snap) { camPos.copy(want); camLook.copy(look); }
   } else {
     want = new THREE.Vector3(p.x * 0.6, 2.55 + p.y * 0.4, p.z + 4.3);
     look = new THREE.Vector3(p.x * 0.65, 1.15 + p.y * 0.35, p.z - 6);
     if (p.falling) { want.y = 3.1; look.y = p.y; }
   }
-  camPos.lerp(want, Math.min(1, dt * (state === 'title' ? 2 : 5))); camLook.lerp(look, Math.min(1, dt * 6));
+  camPos.lerp(want, Math.min(1, dt * (state === 'title' ? 2 : rate))); camLook.lerp(look, Math.min(1, dt * (state === 'ending' ? rate * 1.2 : 6)));
   camera.position.copy(camPos);
   if (shake > 0) { shake -= dt; camera.position.x += rand(-0.15, 0.15) * shake * 2; camera.position.y += rand(-0.15, 0.15) * shake * 2; }
   camera.lookAt(camLook);
   if (debugCam && shop.hecklerObj?.visible) { const g = shop.hecklerObj.position; camera.position.set(g.x * 0.6, g.y + 0.5, g.z + 2.6); camera.lookAt(g.x, g.y + 0.3, g.z); }
   sky.position.copy(camera.position);
-  moon.position.set(camera.position.x + 30, 34, camera.position.z - 130); moon.lookAt(camera.position);
+  if (state === 'ending' && ending.moonAt) { moon.position.copy(ending.moonAt); moon.rotation.set(0, 0, 0); }
+  else { moon.position.set(camera.position.x + 30, 34, camera.position.z - 130); moon.lookAt(camera.position); }
   for (const s of skyline) { s.position.set(camera.position.x, s.userData.y, camera.position.z - s.userData.dist); }
   sun.position.set(p.x - 6, 10, p.z - 8); sun.target.position.set(p.x, 0, p.z);
 }
@@ -724,6 +763,7 @@ function frame() {
   while (total > 1e-6) {
     const dt = Math.min(total, 1 / 60); total -= dt; elapsed += dt;
     if (state === 'shop') { shop.update(dt); continue; }
+    if (state === 'ending') { ending.update(dt, elapsed); updateFx(dt, elapsed); updateCamera(dt, elapsed); continue; }
     if (state !== 'title') { if (state === 'run' && stepHook) stepHook(dt); updateTut(); if (tut.cut) { tut.cut = false; break; } updatePlayer(dt); updateWorld(dt); if (state === 'dead') deadT += dt; }
     else { player.mixer?.update(dt); for (const mo of moths) { const ud = mo.m.userData; ud.t += dt * 10; ud.l.rotation.y = Math.sin(ud.t) * 0.9; ud.r.rotation.y = -Math.sin(ud.t) * 0.9; } }
     updateFx(dt, elapsed); updateCamera(dt, elapsed);
@@ -768,7 +808,7 @@ window.moths = {
   crater(lane, dz, fire) { boss.debugCrater(lane, dz, fire); }, promote() { boss.debugPromote(); }, prismAttack(k) { return boss.debugPrismAttack(k); }, prismFinal(hh) { boss.debugPrismFinal(hh); },
   get tut() { return { on: tut.on, done: tut.done, waiting: tut.waiting, scale: +tut.scale.toFixed(2), jumped: tut.jumped, slid: tut.slid }; },
   resetTutorial() { tut.done = false; try { localStorage.removeItem('paperMoths.tutorial'); } catch (_) { /* ignore */ } },
-  bossSkip(n) { boss.skipTo(n); },
+  bossSkip(n) { boss.skipTo(n); }, get ending() { return ending.state; }, endNow() { if (state === 'run') { boss.debugWin('prism'); startEnding(); } }, endSkip() { ending.skip(); }, bossKill() { boss.debugKill(); }, endPeek(v) { ending.peek(v); }, endLoop() { loopAgain(); }, endAgain() { startRun(); },
   get music() { return bossMusicState(); },
   set stepHook(fn) { stepHook = fn; },
   // jump straight to a boss: clear what's ahead and lay a fresh runway
