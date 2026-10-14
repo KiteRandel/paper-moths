@@ -166,3 +166,6 @@ export function setMuted(m) {
   if (mainGain) { mainGain.gain.cancelScheduledValues(ctx.currentTime); mainGain.gain.value = m || !playing || bossOn ? 0 : MAIN_VOL; }
   if (bossGain) { bossGain.gain.cancelScheduledValues(ctx.currentTime); bossGain.gain.value = m || !bossOn ? 0 : BOSS_VOL; }
 }
+
+// pausing the game freezes every sound in place
+export function pauseAudio(on) { if (!ctx) return; if (on) ctx.suspend(); else ctx.resume(); }

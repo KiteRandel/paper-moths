@@ -14,6 +14,8 @@ Amara chases glowing paper moths across a sepia town at dusk. Leap the gaps betw
 | Leap | ↑, W or Space | swipe up or tap |
 | Slide | ↓ or S (in the air: drop fast) | swipe down |
 
+Press **Esc** (or the ⏸ button) to pause and unpause. Hold **↓ / S** to keep sliding for as long as you like.
+
 ## Things to know
 
 - Your first run starts with a quick tutorial: time slows right before a row of crates and a laundry line, and waits until you press jump or slide.

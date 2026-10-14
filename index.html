@@ -31,7 +31,10 @@
     #combo.on { opacity: 1; transform: scale(1); }
     .powers { display: flex; gap: 8px; margin-top: 6px; justify-content: flex-end; }
     .pw { font-size: 13px; padding: 3px 9px; }
-    #muteBtn { font-size: 16px; padding: 4px 12px; margin-left: 8px; }
+    #muteBtn, #pauseBtn { font-size: 16px; padding: 4px 12px; margin-left: 8px; }
+    #pauseBtn { margin-left: 10px; }
+    #pause { z-index: 9; background: rgba(58,42,38,.35); pointer-events: auto; }
+    #pause h1 { margin-bottom: 6px; }
 
     .modal { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; pointer-events: none; }
     .modal > .paper { pointer-events: auto; text-align: center; padding: 22px 26px; width: min(460px, 100%); }
@@ -157,7 +160,7 @@
       <div class="score"><span class="bcIcon">⚔️</span><span id="bossN">0</span></div>
     </div>
     <div>
-      <div class="paper sub">most bosses <b id="best">0</b><button id="muteBtn" title="Music">♪</button></div>
+      <div class="paper sub">most bosses <b id="best">0</b><button id="pauseBtn" title="Pause (Esc)">⏸</button><button id="muteBtn" title="Music">♪</button></div>
       <div class="powers"><span id="pShield" class="paper pw hidden">🩹 bandaid<b id="pShieldN"></b></span><span id="pSnip" class="paper pw hidden">✂️ scissors<b id="pSnipN"></b></span><span id="pMagnet" class="paper pw hidden">🎀 ribbon magnet</span></div>
     </div>
   </div>
@@ -167,11 +170,20 @@
       <h1><small>Amara &amp;</small>the Paper Moths</h1>
       <div class="by">an evening rooftop run · a game by <b>KiteRandel</b></div>
       <div class="keys">
-        <span class="desk"><kbd>←</kbd><kbd>→</kbd> change lanes · <kbd>↑</kbd>/<kbd>Space</kbd> leap · <kbd>↓</kbd> slide<br /></span>
-        <span class="touch">swipe ← → to change lanes · swipe ↑ to leap · swipe ↓ to slide<br /></span>
+        <span class="desk"><kbd>←</kbd><kbd>→</kbd> change lanes · <kbd>↑</kbd>/<kbd>Space</kbd> leap · <kbd>↓</kbd> slide (hold to keep sliding) · <kbd>Esc</kbd> pause<br /></span>
+        <span class="touch">swipe ← → to change lanes · swipe ↑ to leap · swipe ↓ to slide (keep your finger down to keep sliding)<br /></span>
         Catch the glowing moths and save them up for the shop. Leap the gaps between roofs, duck under the laundry, and watch for 🩹 bandaids and 🎀 ribbons. Run through a pink <b>SHOP</b> sign to spend your moths at the shop. Every few hundred metres, a boss swoops in. How many can you defeat?
       </div>
       <button id="playBtn" disabled>Loading…</button>
+    </div>
+  </div>
+
+  <div id="pause" class="modal hidden">
+    <div class="paper">
+      <h1>Paused</h1>
+      <div class="by">Amara is catching her breath.</div>
+      <button id="resumeBtn">Keep running</button>
+      <div class="hint">or press <kbd>Esc</kbd></div>
     </div>
   </div>
 
@@ -222,6 +234,6 @@
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
     } }
   </script>
-  <script type="module" src="js/main.js?v=25"></script>
+  <script type="module" src="js/main.js?v=26"></script>
 </body>
 </html>

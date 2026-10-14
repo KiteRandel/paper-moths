@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=25';
-import { InkPass } from './post.js?v=25';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState } from './audio.js?v=25';
-import { createBosses } from './boss.js?v=25';
-import { createShop } from './shop.js?v=25';
-import { createBrief } from './brief.js?v=25';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=26';
+import { InkPass } from './post.js?v=26';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=26';
+import { createBosses } from './boss.js?v=26';
+import { createShop } from './shop.js?v=26';
+import { createBrief } from './brief.js?v=26';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -439,6 +439,7 @@ function resetRun() {
   while (genZ > -140) generateBlock(10);
 }
 function startRun() {
+  if (paused) setPaused(false);
   initAudio(); sfx.click(); setMusic(true);
   $('title').classList.add('hidden'); $('over').classList.add('hidden'); $('hud').classList.remove('hidden');
   if (state !== 'title') resetRun();
@@ -513,25 +514,40 @@ const shop = createShop({
 const act = { left() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane > 0) { player.lane--; sfx.lane(); } }, right() { if (tut.waiting || brief.on) return; boss.noteAction(); if (player.lane < 2) { player.lane++; sfx.lane(); } },
   jump() { if (tut.waiting === 'slide' || brief.on) return; boss.noteAction(); if (tut.waiting === 'jump') { tut.jumped = true; tutResolve(); } if (player.grounded || player.coyote > 0) { player.vy = 9.2; player.grounded = false; player.coyote = 0; player.slideT = 0; sfx.jump(); } },
   slide() { if (tut.waiting === 'jump' || brief.on) return; boss.noteAction(); if (tut.waiting === 'slide') { tut.slid = true; tutResolve(); } if (!player.grounded) { player.vy = Math.min(player.vy, -16); player.slideT = 0.75; } else if (player.slideT <= 0) { player.slideT = 0.75; sfx.slide(); } } };
+// =================================================================== pause (Esc, or the pause button)
+let paused = false;
+function setPaused(on) {
+  if (on && state !== 'run') return;
+  paused = on; pauseAudio(on); slideHeld = false;
+  $('pause').classList.toggle('hidden', !on); $('pauseBtn').textContent = on ? '\u25B6' : '\u23F8';
+}
+$('pauseBtn').addEventListener('click', () => setPaused(!paused));
+$('resumeBtn').addEventListener('click', () => setPaused(false));
+addEventListener('blur', () => { slideHeld = false; });
+// hold S / down to keep sliding for as long as you like
+let slideHeld = false;
+addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (k === 'arrowdown' || k === 's') slideHeld = false; });
 addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (state === 'title' || (state === 'dead' && deadT > 1.3)) { if (k === ' ' || k === 'enter') { e.preventDefault(); startRun(); } return; }
   if (state !== 'run') return;
+  if (k === 'escape') { e.preventDefault(); if (!e.repeat) setPaused(!paused); return; }
+  if (paused) return;
   if (brief.on) { if (k === ' ' || k === 'enter') { e.preventDefault(); if (!e.repeat) brief.press(); } return; }
   if (k === 'arrowleft' || k === 'a') act.left();
   else if (k === 'arrowright' || k === 'd') act.right();
   else if (k === 'arrowup' || k === 'w' || k === ' ') { e.preventDefault(); act.jump(); }
-  else if (k === 'arrowdown' || k === 's') { e.preventDefault(); act.slide(); }
+  else if (k === 'arrowdown' || k === 's') { e.preventDefault(); slideHeld = true; if (!e.repeat) act.slide(); }
 });
 let touch = null;
 addEventListener('touchstart', (e) => { const t = e.touches[0]; touch = { x: t.clientX, y: t.clientY, done: false }; }, { passive: true });
 addEventListener('touchmove', (e) => {
-  if (!touch || touch.done || state !== 'run') return; const t = e.touches[0];
+  if (!touch || touch.done || state !== 'run' || paused) return; const t = e.touches[0];
   const dx = t.clientX - touch.x, dy = t.clientY - touch.y;
   if (Math.hypot(dx, dy) < 28) return; touch.done = true;
-  if (Math.abs(dx) > Math.abs(dy)) (dx < 0 ? act.left : act.right)(); else (dy < 0 ? act.jump : act.slide)();
+  if (Math.abs(dx) > Math.abs(dy)) (dx < 0 ? act.left : act.right)(); else if (dy < 0) act.jump(); else { act.slide(); slideHeld = true; }   // keep the finger down to keep sliding
 }, { passive: true });
-addEventListener('touchend', (e) => { if (touch && !touch.done && state === 'run') act.jump(); touch = null; });
+addEventListener('touchend', (e) => { if (touch && !touch.done && state === 'run' && !paused && !e.target.closest?.('button')) act.jump(); touch = null; slideHeld = false; });
 $('playBtn').addEventListener('click', startRun);
 $('againBtn').addEventListener('click', startRun);
 $('muteBtn').addEventListener('click', () => { initAudio(); setMuted(!snd.muted); $('muteBtn').textContent = snd.muted ? '♪̸' : '♪'; });
@@ -561,6 +577,7 @@ function updatePlayer(dt) {
     if (p.y < -2.2 && p.alive) die('fall');
   }
   if (p.coyote > 0) p.coyote -= dt;
+  if (slideHeld && p.grounded && !brief.on && tut.waiting !== 'jump') p.slideT = Math.max(p.slideT, 0.3);   // held down: stay low
   if (p.slideT > 0 && p.grounded) p.slideT -= dt;
   if (p.shield > 0) { p.shieldFx.rotation.z += dt * 4; p.shieldFx.position.y = 0.9 + Math.sin(runT * 5) * 0.15; }
   if (p.magnet > 0) { p.magnet -= dt; if (p.magnet <= 0) $('pMagnet').classList.add('hidden'); }
@@ -670,7 +687,7 @@ function frame() {
   requestAnimationFrame(frame); frames++;
   const raw = Math.min(clock.getDelta(), 0.1);
   tut.scale += (tut.target - tut.scale) * Math.min(1, raw * (tut.target < tut.scale ? 9 : 6));
-  let total = raw * simScale * tut.scale;
+  let total = paused ? 0 : raw * simScale * tut.scale;
   while (total > 1e-6) {
     const dt = Math.min(total, 1 / 60); total -= dt; elapsed += dt;
     if (state === 'shop') { shop.update(dt); continue; }
@@ -680,7 +697,7 @@ function frame() {
   }
   if (state === 'run') updateHUD();
   tickMusic(1 + (speed - 12) / 40);
-  updateFliers(raw);
+  if (!paused) updateFliers(raw);
   flash = Math.max(0, flash - 0.03); ink.quad.material.uniforms.flash.value = flash;
   if (shop.open_) shop.render(ink, elapsed); else ink.render(scene, camera, elapsed);
 }
@@ -731,7 +748,7 @@ window.moths = {
     const run = buildingBlock(12); run.position.set(0, 0, top - 6); world.add(run); blocks.push({ z0: top, z1: top - 12, mesh: run });
     genZ = top - 12; boss.force(kind); while (genZ > p.z - 150) generateBlock(speed || 10);
   },
-  get state() { return { state, speed: +speed.toFixed(2), dist: +dist.toFixed(1), moths: mothsGot, score: Math.floor(dist) + mothPoints, lane: player.lane, y: +player.y.toFixed(2), alive: player.alive, shield: player.shield, magnet: +player.magnet.toFixed(1), obstacles: obstacles.length, combo }; },
+  get state() { return { state, speed: +speed.toFixed(2), dist: +dist.toFixed(1), moths: mothsGot, score: Math.floor(dist) + mothPoints, lane: player.lane, y: +player.y.toFixed(2), slide: +player.slideT.toFixed(2), paused, alive: player.alive, shield: player.shield, magnet: +player.magnet.toFixed(1), obstacles: obstacles.length, combo }; },
   act, startRun, set simScale(v) { simScale = v; }, get frames() { return frames; },
   nextObstacle() { return obstacles.filter((o) => !o.dead && o.box.z1 < player.z).sort((a, b) => b.box.z1 - a.box.z1)[0]; },
   set god(v) { setBandaids(v ? 99 : 0); },
