@@ -1,8 +1,8 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=31';
-import { createChess } from './chess.js?v=31';
+import { PAL, T, toon } from './art.js?v=32';
+import { createChess } from './chess.js?v=32';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -121,7 +121,7 @@ export function createBosses(ctx) {
     for (const h of holes) world.remove(h.mesh); holes.length = 0;
     for (const sp of springs) world.remove(sp.mesh); springs.length = 0;
     for (const s2 of steam) scene.remove(s2.sp); steam.length = 0;
-    for (const c of cracks) world.remove(c.mesh); cracks.length = 0;
+    for (const c of cracks) world.remove(c.mesh); cracks.length = 0; clearX();
     for (const s of shots) scene.remove(s.mesh); shots.length = 0;
     if (lantern) world.remove(lantern.mesh); lantern = null; timers = [];
     if (B.twins) B.twins.g.visible = false; if (B.wrath) { B.wrath.g.visible = false; B.joy.g.visible = false; }
@@ -169,7 +169,7 @@ export function createBosses(ctx) {
   const LEGEND = {
     twins: '<span><b class="b">● blue wave</b> keep running, don\u2019t move</span><span><b class="o">● orange wave</b> slide!</span>',
     twinsSplit: '<span><b class="b">blue side</b> keep running, don\u2019t move</span><span><b class="o">orange side</b> slide!</span><span>pick your side early</span>',
-    wrath: '<span><b class="r">● red</b> crater</span><span><b class="o">🔥 flame</b> fire pillar, switch lanes</span><span><b class="y">● gold</b> Joy\u2019s spring, bounce into Wrath</span><span><b class="r">gold + red flicker</b> trap</span>',
+    wrath: '<span><b class="r">● red</b> crater</span><span><b class="o">🔥</b> fire, switch lanes</span><span><b class="y">● gold</b> spring, bounce into Wrath</span><span><b class="r">✖ red X</b> trap, she\u2019ll smash it</span>',
     fury: '<span><b class="r">Wrath has Joy!</b> no springs for 10 seconds</span><span>the roof is cracking everywhere, find the safe lane</span>',
     chess: '<span><b>glowing squares</b> hurt, stand on the other colour</span><span><b>pieces</b> move like chess pieces</span><span><b class="y">gold path</b> your move: take the king</span>',
     duet: '<span><b class="p">♪ low</b> left · <b class="p">♪ mid</b> centre · <b class="p">♪ high</b> right</span><span>then <b class="p">sing it back</b>!</span>',
@@ -178,7 +178,7 @@ export function createBosses(ctx) {
     st.mode = 'outro'; st.beaten++; st.won.add(st.kind); ctx.bossMusic(false);
     ui.legend.classList.add('hidden'); setBar();
     banner(st.kind === 'twins' ? 'The twins drift apart!' : st.kind === 'duet' ? 'The leash snaps!' : st.kind === 'chess' ? 'Checkmate!' : 'Wrath calms down… Joy hugs her', `bosses defeated: ${st.beaten}`, 2.8);
-    if (st.kind === 'wrath') { anim(B.wrath, 'Hug'); anim(B.joy, 'Hug'); st.slam = null; st.air = null; for (const c of cracks) world.remove(c.mesh); cracks.length = 0; }
+    if (st.kind === 'wrath') { clearX(); anim(B.wrath, 'Hug'); anim(B.joy, 'Hug'); st.slam = null; st.air = null; for (const c of cracks) world.remove(c.mesh); cracks.length = 0; }
     if (st.kind === 'duet') { B.duet.leash.visible = false; clearDuet(); sfx.snap(); }
     if (st.kind === 'chess') chess.clear();
     sfx.bossDown(); ctx.fx(0.5, 0.6);
@@ -326,6 +326,7 @@ export function createBosses(ctx) {
         const warn = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), new THREE.MeshBasicMaterial({ map: crackTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
         warn.rotation.x = -Math.PI / 2; warn.position.set(LANES[c.lane], 0.04, z); bgOnly(warn); world.add(warn);
         c.warn = { mesh: warn, born: st.t, tele, flicker: true }; cracks.push(c.warn);
+        c.x = markX(c.lane, z);
       }
     }
     sfx.crackWarn(); if (gold) sfx.giggle();
@@ -352,6 +353,7 @@ export function createBosses(ctx) {
         if (st.slam !== s || st.mode !== 'fight') return;
         s.phase = 'bimpact'; ctx.fx(0.2, 0.55); sfx.slam(); sfx.sad();
         const sp = g.spring; if (sp && !sp.used) { world.remove(sp.mesh); springs.splice(springs.indexOf(sp), 1); }
+        if (g.x) { clearX(g.x); g.x = null; }
         makeHole(g.lane, s.z); ctx.sparkle(new THREE.Vector3(LANES[g.lane], 0.6, s.z), GOLD, 14); ctx.sparkle(new THREE.Vector3(LANES[g.lane], 0.6, s.z), RED, 14);
         B.joy.busy = true; anim(B.joy, 'Hit', { once: true, after: B.joy.dance || 'Dance', fade: 0.1 }); after(1.0, () => { B.joy.busy = false; });
         banner('Wrath smashed Joy\u2019s spring!', '', 1.1);
@@ -363,6 +365,22 @@ export function createBosses(ctx) {
       after(0.9, () => { if (st.slam === s) st.slam = null; if (st.mode === 'fight' && !st.air) { st.round = Math.min(st.round + 0.25, 3); wrathNext(0.7); } });
     }
   }
+  // a big red X: Wrath is going to smash the spring under it
+  const xTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    g.lineCap = 'round';
+    for (const [col, w] of [['#3a2a26', 30], ['#d8343c', 20]]) { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(24, 24); g.lineTo(104, 104); g.moveTo(104, 24); g.lineTo(24, 104); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const xMarks = [];
+  function markX(lane, z) {
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(1.65, 1.65), new THREE.MeshBasicMaterial({ map: xTex, transparent: true, depthWrite: false }));
+    floor.rotation.x = -Math.PI / 2; floor.position.set(LANES[lane], 0.06, z); bgOnly(floor); world.add(floor);
+    const sign = bgOnly(new THREE.Sprite(new THREE.SpriteMaterial({ map: xTex, transparent: true, depthWrite: false, depthTest: false })));
+    sign.scale.set(1.9, 1.9, 1); sign.position.set(LANES[lane], 2.7, z); sign.renderOrder = 5; world.add(sign);
+    const m = { floor, sign, born: st.t }; xMarks.push(m); return m;
+  }
+  function clearX(m) { const list = m ? [m] : [...xMarks]; for (const x of list) { world.remove(x.floor); world.remove(x.sign); xMarks.splice(xMarks.indexOf(x), 1); } }
   function makeSpring(lane, z) {
     const g = new THREE.Group(); g.position.set(LANES[lane], 0, z);
     const gold = toon({ color: '#ffd23a', emissive: new THREE.Color('#a86a00'), emissiveIntensity: 0.5 });
@@ -396,7 +414,7 @@ export function createBosses(ctx) {
     st.furyDone = true; st.fury = { until: st.t + 10 }; st.slam = null; st.air = null;
     // every spring still on the roof gets crushed
     for (const sp of [...springs]) if (!sp.used) { world.remove(sp.mesh); springs.splice(springs.indexOf(sp), 1); makeHole(sp.lane, sp.z); ctx.sparkle(new THREE.Vector3(LANES[sp.lane], 0.5, sp.z), RED, 10); }
-    for (const c of cracks) world.remove(c.mesh); cracks.length = 0;
+    for (const c of cracks) world.remove(c.mesh); cracks.length = 0; clearX();
     anim(B.wrath, 'Grab', { fade: 0.15 }); B.joy.busy = true; anim(B.joy, 'Struggle', { fade: 0.15 });
     sfx.growl(); sfx.sad(); ctx.fx(0.3, 0.7);
     banner('Wrath turns on Joy!', 'no springs · survive 10 seconds', 2.2);
@@ -556,6 +574,7 @@ export function createBosses(ctx) {
 
     if (st.mode === 'fight' && st.kind === 'wrath') {
       if (st.fury) { const left = Math.max(0, st.fury.until - st.t); ui.name.textContent = `Wrath & Joy · ${Math.ceil(left)}s`; if (left <= 0) { ui.name.textContent = 'Wrath & Joy'; endFury(); } }
+      for (const x of xMarks) { const k = st.t - x.born, pulse = 1 + Math.abs(Math.sin(k * 7)) * 0.25; x.sign.scale.set(1.9 * pulse, 1.9 * pulse, 1); x.sign.position.y = 2.7 + Math.sin(k * 5) * 0.12; x.floor.material.opacity = 0.75 + Math.sin(k * 14) * 0.25; }
       for (const c of cracks) { c.mesh.material.opacity = c.flicker ? (Math.sin((st.t - c.born) * 26) > 0 ? 1 : 0.1) : 0.55 + Math.sin((st.t - c.born) * 18) * 0.45; c.mesh.scale.setScalar(0.8 + Math.min(1, (st.t - c.born) / c.tele) * 0.5); }
       for (const sp of springs) {
         sp.pad.position.y = 0.72 + (sp.used ? Math.max(0, 0.5 - (st.t - (sp.usedT || 0))) : Math.abs(Math.sin(t * 5)) * 0.06);
