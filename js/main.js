@@ -1,12 +1,12 @@
 // Amara & the Paper Moths — an endless rooftop run at dusk. Made by KiteRandel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { PAL, T, makeTextures, toon, toonify } from './art.js?v=32';
-import { InkPass } from './post.js?v=32';
-import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=32';
-import { createBosses } from './boss.js?v=32';
-import { createShop } from './shop.js?v=32';
-import { createBrief } from './brief.js?v=32';
+import { PAL, T, makeTextures, toon, toonify } from './art.js?v=33';
+import { InkPass } from './post.js?v=33';
+import { initAudio, sfx, setMusic, tickMusic, setMuted, snd, setBossMusic, bossMusicState, pauseAudio } from './audio.js?v=33';
+import { createBosses } from './boss.js?v=33';
+import { createShop } from './shop.js?v=33';
+import { createBrief } from './brief.js?v=33';
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -471,6 +471,7 @@ const boss = createBosses({
   fx(f, sh) { flash = Math.max(flash, f); shake = Math.max(shake, sh); },
   giveShield() { bandaidApi.add(1); },
   hurt(msg) { hurtPlayer(msg); },
+  addObstacle: (k, l, z) => addObstacle(k, l, z),
 });
 let lastHurt = '';
 const hurtLog = [];
@@ -534,9 +535,10 @@ let cheat = '';
 addEventListener('keydown', (e) => {
   if (!/^[0-9]$/.test(e.key)) return;
   cheat = (cheat + e.key).slice(-4);
-  if (cheat !== '3797') return;
+  const codes = { 3797: ['chess', 'Ivory &amp; Onyx'], 7973: ['prism', 'Neon Amara'] }, hit = codes[cheat];
+  if (!hit) return;
   cheat = '';
-  const go = () => { jumpToBoss('chess'); const b = $('banner'); b.innerHTML = 'Test mode<small>skipping ahead to Ivory &amp; Onyx</small>'; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1600); };
+  const go = () => { jumpToBoss(hit[0]); const b = $('banner'); b.innerHTML = `Test mode<small>skipping ahead to ${hit[1]}</small>`; b.classList.add('on'); setTimeout(() => b.classList.remove('on'), 1600); };
   if (state === 'title' || state === 'dead') { if (state === 'title' || deadT > 1.3) { startRun(); setTimeout(go, 50); } }
   else if (state === 'run' && !paused) go();
 });

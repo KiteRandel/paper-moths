@@ -1,8 +1,9 @@
 // Boss fights: the Twin Lanterns, Wrath & Joy, and Lilac & Glitch. Made by KiteRandel.
 import * as THREE from 'three';
 import { clone as skClone } from 'three/addons/utils/SkeletonUtils.js';
-import { PAL, T, toon } from './art.js?v=32';
-import { createChess } from './chess.js?v=32';
+import { PAL, T, toon } from './art.js?v=33';
+import { createChess } from './chess.js?v=33';
+import { createPrism } from './prism.js?v=33';
 
 const rand = (a = 0, b = 1) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -44,6 +45,12 @@ export function createBosses(ctx) {
     hurt: (m) => ctx.hurt(m), fx: (a, b) => ctx.fx(a, b), after: (s2, fn) => after(s2, fn), banner: (a, b, c) => banner(a, b, c),
     name: (txt) => { ui.name.textContent = txt; }, hitBoss: () => hitBoss(), isFight: () => st.mode === 'fight' && st.kind === 'chess', anim: (b, n, o) => anim(b, n, o),
   });
+  const prism = createPrism({
+    world, player, LANES, sfx, get speed() { return ctx.speed; },
+    hurt: (m) => ctx.hurt(m), fx: (a, b) => ctx.fx(a, b), after: (s2, fn) => after(s2, fn), banner: (a, b, c) => banner(a, b, c),
+    name: (txt) => { ui.name.textContent = txt; }, hitBoss: () => hitBoss(), isFight: () => st.mode === 'fight' && st.kind === 'prism', anim: (b, n, o) => anim(b, n, o),
+    addObstacle: (k, l, z) => ctx.addObstacle?.(k, l, z),
+  });
   function init(gltf) {
     B.tmpl = gltf;
     const blue = tinted(gltf, '#a9c3ff', BLUE), orange = tinted(gltf, '#ffc790', ORANGE);
@@ -59,6 +66,7 @@ export function createBosses(ctx) {
     for (const [b, x, ry] of [[ivory, -0.95, Math.PI + 0.25], [onyx, 0.95, Math.PI - 0.25]]) { scene.remove(b.g); board.add(b.g); b.g.position.x = x; b.g.rotation.y = ry; b.g.visible = true; }
     const clock = chess.makeClock(); clock.position.set(0, 0.55, 0.35); clock.scale.setScalar(0.55); board.add(clock);
     board.scale.setScalar(1.6); B.chess = { g: board, white: ivory, black: onyx, clock };
+    prism.init(gltf, tinted, scene); B.prism = { g: prism.group };
     const lilac = tinted(gltf, '#d9c2ff', LILAC), glitch = tinted(gltf, '#c4ffbd', GREEN);
     const bone = (root, ...names) => { for (const n of names) { const o = root.getObjectByName(n); if (o) return o; } return null; };
     lilac.hand = bone(lilac.root, 'HandL', 'Hand.L', 'Hand_L');
@@ -100,7 +108,7 @@ export function createBosses(ctx) {
   const pitMat = new THREE.MeshBasicMaterial({ color: '#1e1412' });
   const debrisMat = toon({ color: PAL.dusk });
 
-  const st = { won: new Set(), seen: new Set(), mode: 'none', kind: null, hp: 0, maxHp: 3, t: 0, nextAt: 520, order: ['twins', 'wrath', 'duet', 'chess'], beaten: 0, startZ: 0, boss: null, z: 0, y: 0, x: 0 };
+  const st = { won: new Set(), seen: new Set(), mode: 'none', kind: null, hp: 0, maxHp: 3, t: 0, nextAt: 520, order: ['twins', 'wrath', 'duet', 'chess', 'prism'], beaten: 0, startZ: 0, boss: null, z: 0, y: 0, x: 0 };
   const waves = [], holes = [], cracks = [], shots = [], springs = [];
   let lantern = null, timers = [], lastAct = -9;
   const after = (secs, fn) => timers.push({ at: st.t + secs, fn });
@@ -126,7 +134,7 @@ export function createBosses(ctx) {
     if (lantern) world.remove(lantern.mesh); lantern = null; timers = [];
     if (B.twins) B.twins.g.visible = false; if (B.wrath) { B.wrath.g.visible = false; B.joy.g.visible = false; }
     if (B.duet) { B.duet.lilac.g.visible = B.duet.glitch.g.visible = B.duet.leash.visible = false; B.duet.crack = 0; }
-    clearDuet(); chess.clear(); if (B.chess) B.chess.g.visible = false;
+    clearDuet(); chess.clear(); if (B.chess) B.chess.g.visible = false; prism.clear();
     st.seen = new Set(); st.won = new Set();
     Object.assign(st, { mode: 'none', kind: null, hp: 0, t: 0, nextAt: 520, beaten: 0, boss: null, slam: null, air: null, fury: null, furyDone: false }); lastAct = -99; furyRows.length = 0;
     ui.legend.classList.add('hidden'); setBar(); ctx.bossMusic(false);
@@ -147,6 +155,10 @@ export function createBosses(ctx) {
       d.glitch.g.position.set(1.6, 2, st.z + 1);
       banner('Lilac & Glitch', 'remember her song · dodge Glitch · sing it back!', 3.4);
       ui.name.textContent = 'Lilac & Glitch';
+    } else if (st.kind === 'prism') {
+      st.boss = B.prism; st.z = p.z - 60; st.y = 2.8; st.x = 0; prism.begin();
+      banner('Everyone\u2019s here\u2026', 'all of them, at once', 3.0);
+      ui.name.textContent = 'Neon Amara';
     } else if (st.kind === 'chess') {
       const c = B.chess; st.boss = c; c.g.visible = true; st.z = p.z - 60; st.y = 2.4; st.x = 0;
       c.white.g.position.set(-0.95, 0, 0); c.black.g.position.set(0.95, 0, 0);
@@ -164,23 +176,25 @@ export function createBosses(ctx) {
     ctx.giveShield();   // a bandage to start every fight
     ctx.bossMusic(true);
     sfx.bossIntro(); setBar();
-    after(2.6, () => { st.mode = 'fight'; st.t0 = st.t; st.round = 0; st.slamsSinceHit = 0; if (st.kind === 'twins') { ui.legend.innerHTML = LEGEND.twins; ui.legend.classList.remove('hidden'); volley(); } else if (st.kind === 'chess') { ui.legend.innerHTML = LEGEND.chess; ui.legend.classList.remove('hidden'); chess.start(); } else if (st.kind === 'duet') { ui.legend.innerHTML = LEGEND.duet; ui.legend.classList.remove('hidden'); duetCycle(); } else { ui.legend.innerHTML = LEGEND.wrath; ui.legend.classList.remove('hidden'); wrathNext(1.0); } });
+    after(2.6, () => { st.mode = 'fight'; st.t0 = st.t; st.round = 0; st.slamsSinceHit = 0; if (st.kind === 'twins') { ui.legend.innerHTML = LEGEND.twins; ui.legend.classList.remove('hidden'); volley(); } else if (st.kind === 'chess') { ui.legend.innerHTML = LEGEND.chess; ui.legend.classList.remove('hidden'); chess.start(); } else if (st.kind === 'prism') { ui.legend.innerHTML = LEGEND.prism; ui.legend.classList.remove('hidden'); prism.start(); } else if (st.kind === 'duet') { ui.legend.innerHTML = LEGEND.duet; ui.legend.classList.remove('hidden'); duetCycle(); } else { ui.legend.innerHTML = LEGEND.wrath; ui.legend.classList.remove('hidden'); wrathNext(1.0); } });
   }
   const LEGEND = {
     twins: '<span><b class="b">● blue wave</b> keep running, don\u2019t move</span><span><b class="o">● orange wave</b> slide!</span>',
     twinsSplit: '<span><b class="b">blue side</b> keep running, don\u2019t move</span><span><b class="o">orange side</b> slide!</span><span>pick your side early</span>',
     wrath: '<span><b class="r">● red</b> crater</span><span><b class="o">🔥</b> fire, switch lanes</span><span><b class="y">● gold</b> spring, bounce into Wrath</span><span><b class="r">✖ red X</b> trap, she\u2019ll smash it</span>',
     fury: '<span><b class="r">Wrath has Joy!</b> no springs for 10 seconds</span><span>the roof is cracking everywhere, find the safe lane</span>',
+    prism: '<span><b>white ring</b> shrinks around you</span><span>jump the moment it <b class="y">turns gold</b> to knock the ball back</span><span>keep the rally going</span>',
     chess: '<span><b>glowing squares</b> hurt, stand on the other colour</span><span><b>pieces</b> move like chess pieces</span><span><b class="y">gold path</b> your move: take the king</span>',
     duet: '<span><b class="p">♪ low</b> left · <b class="p">♪ mid</b> centre · <b class="p">♪ high</b> right</span><span>then <b class="p">sing it back</b>!</span>',
   };
   function defeated() {
     st.mode = 'outro'; st.beaten++; st.won.add(st.kind); ctx.bossMusic(false);
     ui.legend.classList.add('hidden'); setBar();
-    banner(st.kind === 'twins' ? 'The twins drift apart!' : st.kind === 'duet' ? 'The leash snaps!' : st.kind === 'chess' ? 'Checkmate!' : 'Wrath calms down… Joy hugs her', `bosses defeated: ${st.beaten}`, 2.8);
+    banner(st.kind === 'twins' ? 'The twins drift apart!' : st.kind === 'duet' ? 'The leash snaps!' : st.kind === 'chess' ? 'Checkmate!' : st.kind === 'prism' ? 'The colours scatter!' : 'Wrath calms down… Joy hugs her', `bosses defeated: ${st.beaten}`, 2.8);
     if (st.kind === 'wrath') { clearX(); anim(B.wrath, 'Hug'); anim(B.joy, 'Hug'); st.slam = null; st.air = null; for (const c of cracks) world.remove(c.mesh); cracks.length = 0; }
     if (st.kind === 'duet') { B.duet.leash.visible = false; clearDuet(); sfx.snap(); }
     if (st.kind === 'chess') chess.clear();
+    if (st.kind === 'prism') prism.defeated();
     sfx.bossDown(); ctx.fx(0.5, 0.6);
     // shower of moths down the road
     const p = player;
@@ -198,6 +212,7 @@ export function createBosses(ctx) {
     if (st.kind === 'twins') { for (const b of [B.twins.blue, B.twins.orange]) anim(b, 'Hit', { once: true, after: 'Hug', fade: 0.1 }); }
     else if (st.kind === 'duet') { anim(B.duet.lilac, 'Hit', { once: true, after: 'Sing', fade: 0.1 }); B.duet.crack++; }
     else if (st.kind === 'chess') chess.afterHit(st.hp);
+    else if (st.kind === 'prism') prism.afterHit(st.hp);
     else { anim(B.wrath, 'Hit', { once: true, after: 'Rage', fade: 0.1 }); sfx.giggle(); B.joy.spin = 1; setTimeout(() => sfx.growl(), 500); }
     if (st.hp <= 0) after(0.5, defeated);
   }
@@ -511,6 +526,7 @@ export function createBosses(ctx) {
       let wantZ = p.z - (st.kind === 'twins' ? 15 : st.kind === 'duet' ? 14 : st.kind === 'chess' ? 16 : 12), wantY = st.kind === 'twins' ? 2.2 : st.kind === 'duet' ? 2.3 : st.kind === 'chess' ? 2.0 : 2.6, wantX = st.kind === 'duet' ? -0.9 + Math.sin(t * 0.35) * 0.5 : st.kind === 'chess' ? Math.sin(t * 0.4) * 0.3 : Math.sin(t * 0.7) * 0.9;
       let k = 3;
       let kx = null;
+      if (st.kind === 'prism') { const wheel = prism.state && prism.state.phase !== 'fused'; wantZ = p.z - (wheel ? 12 : 16); wantY = wheel ? 3.2 : 2.8; wantX = 0; }
       if (st.kind === 'chess' && chess.queenOn) { wantZ = p.z - 11; wantY = 1.6; wantX = 0; k = 5; }
       if (st.kind === 'wrath' && st.air) { wantZ = st.air.z; wantY = 2.3; wantX = LANES[st.air.lane]; k = 6; kx = 3.2; }
       else if (st.kind === 'wrath' && st.slam) {
@@ -523,9 +539,10 @@ export function createBosses(ctx) {
       st.z += (wantZ - st.z) * Math.min(1, dt * k); st.y += (wantY - st.y) * Math.min(1, dt * k); st.x += (wantX - st.x) * Math.min(1, dt * (kx ?? k * 0.8));
       if (st.kind === 'wrath' && st.slam && (st.slam.phase === 'impact' || st.slam.phase === 'bimpact')) { st.z = st.slam.z; st.y = 0; st.x = LANES[st.slam.wrathLane]; }
       b.g.position.set(st.x, st.y + (st.mode === 'fight' ? Math.sin(t * 2) * 0.15 : 0), st.z);
-      if (st.mode === 'outro') { if (st.kind !== 'wrath') b.g.rotation.z += dt * 3; b.g.scale.multiplyScalar(1 - dt * 0.35); if (st.outroT > 2.2) { b.g.visible = false; b.g.rotation.z = 0; b.g.scale.setScalar(st.kind === 'wrath' ? 1.7 : 1.6); if (st.kind === 'wrath') { B.joy.g.visible = false; B.joy.g.scale.setScalar(1.45); } if (st.kind === 'duet') { B.duet.glitch.g.visible = false; B.duet.glitch.g.scale.setScalar(1.45); B.duet.glitch.g.rotation.z = 0; } st.mode = 'none'; st.boss = null; st.nextAt = ctx.dist + 650; } }
+      if (st.mode === 'outro') { if (st.kind !== 'wrath') b.g.rotation.z += dt * 3; b.g.scale.multiplyScalar(1 - dt * 0.35); if (st.outroT > 2.2) { b.g.visible = false; b.g.rotation.z = 0; b.g.scale.setScalar(st.kind === 'wrath' ? 1.7 : st.kind === 'prism' ? 1 : 1.6); if (st.kind === 'prism') prism.clear(); if (st.kind === 'wrath') { B.joy.g.visible = false; B.joy.g.scale.setScalar(1.45); } if (st.kind === 'duet') { B.duet.glitch.g.visible = false; B.duet.glitch.g.scale.setScalar(1.45); B.duet.glitch.g.rotation.z = 0; } st.mode = 'none'; st.boss = null; st.nextAt = ctx.dist + 650; } }
       // mixers + auras
-      const list = st.kind === 'twins' ? [B.twins.blue, B.twins.orange] : st.kind === 'duet' ? [B.duet.lilac, B.duet.glitch] : st.kind === 'chess' ? [B.chess.white, B.chess.black] : [B.wrath, B.joy];
+      const list = st.kind === 'twins' ? [B.twins.blue, B.twins.orange] : st.kind === 'duet' ? [B.duet.lilac, B.duet.glitch] : st.kind === 'chess' ? [B.chess.white, B.chess.black] : st.kind === 'prism' ? [] : [B.wrath, B.joy];
+      if (st.kind === 'prism') prism.update(dt, t, st.mode === 'fight');
       if (st.kind === 'chess') chess.update(dt, t, st.mode === 'fight');
       if (st.kind === 'duet') updateDuetBodies(dt, t);
       if (st.kind === 'wrath') updateJoy(dt, t);
@@ -822,7 +839,7 @@ export function createBosses(ctx) {
     noteAction() { lastAct = st.t; },
     onJump() { return st.kind === 'chess' && st.mode === 'fight' && chess.queenOn ? chess.queenFire() : false; },
     get beaten() { return st.beaten; }, get won() { return st.won; }, get briefing() { return st.mode === 'briefing'; },
-    get state() { return { chess: st.kind === 'chess' ? chess.state : null, mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind === 'red' && c.fire ? 'fire' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, fires: r.fires, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, blue: w.blueLanes, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, fires: holes.filter((h) => h.flame).length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
+    get state() { return { prism: st.kind === 'prism' ? prism.state : null, chess: st.kind === 'chess' ? chess.state : null, mode: st.mode, kind: st.kind, hp: st.hp, nextAt: Math.round(st.nextAt), slam: st.slam ? { row: st.slam.row.map((c) => ({ lane: c.lane, kind: c.kind === 'gold' && st.slam.breakSpring ? 'trap' : c.kind === 'red' && c.fire ? 'fire' : c.kind })), phase: st.slam.phase, dz: +(player.z - st.slam.z).toFixed(1) } : null, air: st.air ? { lane: st.air.lane, dz: +(player.z - st.air.z).toFixed(1) } : null, springs: springs.filter((x) => !x.used).map((x) => ({ lane: x.lane, dz: +(player.z - x.z).toFixed(1) })), wrathX: +st.x.toFixed(2), fury: st.fury ? { left: +(st.fury.until - st.t).toFixed(1), rows: furyRows.filter((r) => !r.done || player.z - r.z > -2).filter((r) => player.z - r.z > -1.8).map((r) => ({ safe: r.safe, reds: r.reds, fires: r.fires, dz: +(player.z - r.z).toFixed(1) })) } : null, waves: waves.filter((w) => !w.done).map((w) => ({ c: w.color, blue: w.blueLanes, dz: +(player.z - w.mesh.position.z).toFixed(1) })), lantern: lantern ? { lane: lantern.lane, dz: +(player.z - lantern.z).toFixed(1) } : null, holes: holes.length, fires: holes.filter((h) => h.flame).length, duet: duet.phase ? { glyphs: duet.glyphs.length, phase: duet.phase, melody: duet.melody, strike: duet.nextStrike, rows: duet.rows.filter((r) => !r.done).map((r) => ({ i: r.i, dz: +(player.z - r.z).toFixed(1) })) } : null }; },
     debugCrater(lane, dz, fire) { makeHole(lane, player.z - dz, fire); },
     debugPromote() { chess.debugPromote(); },
     force(kind) { st.mode = 'pending'; st.kind = kind; st.startZ = null; },
