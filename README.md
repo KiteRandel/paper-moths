@@ -63,4 +63,4 @@ It's a static site with no build step: `npx serve .` and open the URL it prints.
 
 ## License
 
-Code: MIT © KiteRandel. The Amara character and model (`assets/amara.glb`) © KiteRandel, all rights reserved. The music (`assets/main-theme.mp3`, a calmer edit of "Rush Hour", and `assets/boss-theme.mp3`, "Dreamtone Bloom") is from Magnific, used under KiteRandel's Magnific license. It is not covered by the MIT license and may not be reused or redistributed.
+© 2026 KiteRandel. All rights reserved. The code, the Amara character and model (`assets/amara.glb`) and all other art in this repository belong to KiteRandel and may not be copied, modified, redistributed or reused without permission. See [LICENSE](LICENSE). The music (`assets/main-theme.mp3`, a calmer edit of "Rush Hour", and `assets/boss-theme.mp3`, "Dreamtone Bloom") is from Magnific, used under KiteRandel's Magnific license, and may not be reused or redistributed.
